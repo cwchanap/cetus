@@ -35,6 +35,10 @@ type TsExpression = import('typescript').Expression
 const FORBIDDEN_EXTERNAL =
     /^(react-dom|react-native-web|pixi\.js|canvaskit-wasm|@\/)(\/|$)|^@shopify\/react-native-skia\/(.+\/)?web(\/|$)|^@shopify\/react-native-skia\/.+\.web(\.|$)/
 
+/** Bundled media/images are leaves: verify the file exists, never parse it
+ *  as source. */
+const ASSET_EDGE = /\.(m4a|mp3|wav|aac|aiff|caf|png|jpe?g|gif|webp|svg)$/i
+
 const extractRuntimeEdges = (
     file: string,
     source: string
@@ -152,6 +156,12 @@ const collectNativeDependencyGraph = (entries: string[]): NativeGraph => {
                 FORBIDDEN_EXTERNAL.test(edge.specifier)
             ) {
                 graph.forbidden.push(edge)
+                continue
+            }
+            if (ASSET_EDGE.test(edge.specifier)) {
+                if (!existsSync(resolve(dirname(file), edge.specifier))) {
+                    graph.unresolved.push(edge)
+                }
                 continue
             }
             if (!edge.specifier.startsWith('.')) {
@@ -281,6 +291,8 @@ describe('the native game routing graph stays portable', () => {
             'src/games/boards/SatelliteSyncBoard.tsx',
             'src/games/ice-slide/controller.ts',
             'src/games/boards/IceSlideBoard.tsx',
+            'src/games/rhythm-reactor/run.ts',
+            'src/games/boards/RhythmReactorBoard.tsx',
             'src/games/canvas/useFrameLoop.ts',
         ]) {
             expect(reachable).toContain(expected)
@@ -542,6 +554,15 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         '@cetus/games/shared/geometry',
         /packages\/games\/src\/shared\/geometry\.ts$/,
     ],
+    [
+        '@cetus/games/rhythm-reactor/RhythmReactorGame',
+        /packages\/games\/src\/rhythm-reactor\/RhythmReactorGame\.ts$/,
+    ],
+    [
+        '@cetus/games/rhythm-reactor/types',
+        /packages\/games\/src\/rhythm-reactor\/types\.ts$/,
+    ],
+    ['expo-audio', /node_modules\/expo-audio\/build\/index\.js$/],
     [
         'react-native-gesture-handler',
         /node_modules\/react-native-gesture-handler\/src\/index\.ts$/,

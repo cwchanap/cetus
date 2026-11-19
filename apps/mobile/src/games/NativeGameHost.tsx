@@ -63,6 +63,7 @@ export function NativeGameHost({
   )
   const [setupError, setSetupError] = useState(false)
   const [setupAttempt, setSetupAttempt] = useState(0)
+  const [prepared, setPrepared] = useState(false)
 
   useEffect(() => {
     if (!port && !handlePort) {
@@ -71,6 +72,7 @@ export function NativeGameHost({
     let cancelled = false
     let teardown: (() => void) | null = null
     setSetupError(false)
+    setPrepared(false)
     void (async () => {
       let created: NativeGameRuntime | null = null
       try {
@@ -107,12 +109,22 @@ export function NativeGameHost({
         teardown = () => {
           created?.dispose()
           setRuntime(null)
+          setPrepared(false)
           setRewardBanner(null)
         }
+        // Port-specific pre-run preparation (Rhythm Reactor audio) keeps
+        // Start/Replay behind the same binding-pending shell the host
+        // already shows; a rejection uses the setup-error retry path.
+        await created.prepare?.()
+        if (cancelled) {
+          return
+        }
+        setPrepared(true)
       } catch {
         created?.dispose()
         if (!cancelled) {
           setRuntime(null)
+          setPrepared(false)
           setRewardBanner(null)
           setSetupError(true)
         }
@@ -197,7 +209,7 @@ export function NativeGameHost({
             params: { returnTo: `/games/${gameId}/play` },
           })
         }
-        bindingPending={!runtime}
+        bindingPending={!runtime || !prepared}
       />
       {runtime ? (
         BoardView ? (

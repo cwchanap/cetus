@@ -1,0 +1,903 @@
+import React from 'react'
+import TestRenderer, { act } from 'react-test-renderer'
+import {
+  AccessibilityInfo,
+  AppState,
+  ScrollView,
+  StyleSheet,
+  Text,
+  type AppStateStatus,
+} from 'react-native'
+import { GameID } from '@cetus/shared/games'
+import type { ScoreSubmissionResult } from '@cetus/shared/scores'
+import { AchievementRarity } from '@cetus/shared/achievements'
+import { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
+
+jest.mock('../src/lib/api', () => mockApiModule)
+
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    replace: jest.fn(),
+    canGoBack: jest.fn(),
+  }),
+}))
+
+jest.mock('@shopify/react-native-skia', () => {
+  const mockReact = jest.requireActual<typeof import('react')>('react')
+  const { View: MockView } =
+    jest.requireActual<typeof import('react-native')>('react-native')
+  const shape = (name: string) => (props: Record<string, unknown>) =>
+    mockReact.createElement(
+      MockView,
+      { ...props, testID: `skia-${name}` },
+      props.children as React.ReactNode
+    )
+  return {
+    Canvas: (props: { children?: React.ReactNode; style?: unknown }) =>
+      mockReact.createElement(
+        MockView,
+        { testID: 'skia-Canvas' },
+        props.children
+      ),
+    Group: shape('Group'),
+    Rect: shape('Rect'),
+    Circle: shape('Circle'),
+    Path: shape('Path'),
+  }
+})
+
+type MockAudioStatus = {
+  currentTime: number
+  playing: boolean
+  isLoaded: boolean
+  error: string | null
+  duration: number
+  didJustFinish: boolean
+}
+
+class MockAudioPlayer {
+  isLoaded = false
+  playing = false
+  paused = true
+  currentTime = 0
+  error: string | null = null
+  private listeners = new Set<(status: MockAudioStatus) => void>()
+
+  play = jest.fn(() => {
+    this.playing = true
+    this.paused = false
+    this.emit()
+  })
+
+  pause = jest.fn(() => {
+    this.playing = false
+    this.paused = true
+    this.emit()
+  })
+
+  seekTo = jest.fn(async (seconds: number) => {
+    this.currentTime = seconds
+    this.emit()
+  })
+
+  remove = jest.fn()
+
+  addListener = (
+    _event: string,
+    listener: (status: MockAudioStatus) => void
+  ) => {
+    this.listeners.add(listener)
+    return { remove: () => this.listeners.delete(listener) }
+  }
+
+  emit(overrides: Partial<MockAudioStatus> = {}) {
+    const status: MockAudioStatus = {
+      currentTime: this.currentTime,
+      playing: this.playing,
+      isLoaded: this.isLoaded,
+      error: this.error,
+      duration: 60,
+      didJustFinish: false,
+      ...overrides,
+    }
+    for (const listener of [...this.listeners]) {
+      listener(status)
+    }
+  }
+
+  finishLoading() {
+    this.isLoaded = true
+    this.emit()
+  }
+
+  failLoading(message = 'decode failed') {
+    this.error = message
+    this.emit()
+  }
+}
+
+let mockAudioPlayer: MockAudioPlayer
+const mockCreateAudioPlayer = jest.fn(
+  (_source: unknown, _options?: unknown) => {
+    return mockAudioPlayer
+  }
+)
+const mockSetAudioModeAsync = jest.fn(async (_mode: unknown) => {})
+
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: mockCreateAudioPlayer,
+  setAudioModeAsync: mockSetAudioModeAsync,
+}))
+
+import * as mockApiModule from '../src/test/mockApiModule'
+import { api } from '../src/lib/api'
+import { NativeGameHost } from '../src/games/NativeGameHost'
+import { NATIVE_GAMES } from '../src/games/registry'
+import { createRhythmReactorRun } from '../src/games/rhythm-reactor/run'
+
+const submitScore = jest.mocked(api.submitScore)
+
+const createdGames: RhythmReactorGame[] = []
+const originalEntry = NATIVE_GAMES[GameID.RHYTHM_REACTOR]
+const originalPort = originalEntry?.port
+beforeAll(() => {
+  if (!originalPort) {
+    throw new Error('Rhythm Reactor registry port missing')
+  }
+  NATIVE_GAMES[GameID.RHYTHM_REACTOR] = {
+    port: {
+      ...originalPort,
+      createGame: deps => {
+        const game = new RhythmReactorGame({
+          submitScore: deps.submitScore,
+          platform: deps.platform,
+          maxUpdateDelta: RHYTHM_REACTOR_RULES.duration,
+        })
+        createRhythmReactorRun(game)
+        createdGames.push(game)
+        return game
+      },
+    },
+  }
+})
+afterAll(() => {
+  NATIVE_GAMES[GameID.RHYTHM_REACTOR] = originalEntry
+})
+
+let rafQueue: Array<{ id: number; cb: (time: number) => void }> = []
+let nextRafId = 1
+let frameTime = 1_000_000
+const appStateHandlers = new Set<(state: AppStateStatus) => void>()
+
+const fireFrame = (time: number) => {
+  const entry = rafQueue.shift()
+  if (!entry) {
+    throw new Error('no frame scheduled')
+  }
+  act(() => {
+    entry.cb(time)
+  })
+}
+
+const advanceFrames = (count: number, stepMs = 50) => {
+  for (let frame = 0; frame < count; frame += 1) {
+    if (rafQueue.length === 0) {
+      return
+    }
+    frameTime += stepMs
+    fireFrame(frameTime)
+  }
+}
+
+const emitAppState = (state: AppStateStatus) => {
+  act(() => {
+    for (const handler of appStateHandlers) {
+      handler(state)
+    }
+  })
+}
+
+const trees: Array<TestRenderer.ReactTestRenderer> = []
+
+const drain = async (ms = 25) => {
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, ms))
+  })
+}
+
+const render = async (element: React.ReactElement) => {
+  let tree: TestRenderer.ReactTestRenderer | undefined
+  await act(async () => {
+    tree = TestRenderer.create(element)
+  })
+  await drain()
+  if (!tree) {
+    throw new Error('TestRenderer.create returned nothing')
+  }
+  trees.push(tree)
+  return tree
+}
+
+const unmount = async (tree: TestRenderer.ReactTestRenderer) => {
+  const index = trees.indexOf(tree)
+  if (index >= 0) {
+    trees.splice(index, 1)
+  }
+  await act(async () => {
+    tree.unmount()
+  })
+}
+
+const press = async (tree: TestRenderer.ReactTestRenderer, label: string) => {
+  const button = tree.root.findByProps({ accessibilityLabel: label })
+  await act(async () => {
+    button.props.onPress()
+  })
+}
+
+const scalarText = (children: React.ReactNode): string => {
+  if (Array.isArray(children)) {
+    return children.map(scalarText).join('')
+  }
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children)
+  }
+  return ''
+}
+
+const renderedText = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root
+    .findAllByType(Text)
+    .map(node => scalarText(node.props.children))
+    .join('\n')
+
+const testText = (
+  tree: TestRenderer.ReactTestRenderer,
+  testID: string
+): string => {
+  const node = tree.root.findAll(
+    candidate => candidate.type === Text && candidate.props.testID === testID
+  )[0]
+  if (!node) {
+    throw new Error(`no Text with testID ${testID}`)
+  }
+  return scalarText(node.props.children as React.ReactNode)
+}
+
+const control = (tree: TestRenderer.ReactTestRenderer, label: string) =>
+  tree.root.findByProps({ accessibilityLabel: label })
+
+const fireLayouts = (tree: TestRenderer.ReactTestRenderer) => {
+  const hosts = tree.root
+    .findAll(node => typeof node.type === 'string')
+    .filter(node => typeof node.props.onLayout === 'function')
+  expect(hosts.length).toBeGreaterThan(0)
+  act(() => {
+    for (const host of hosts) {
+      host.props.onLayout({
+        nativeEvent: {
+          layout: { x: 0, y: 0, width: 390, height: 560 },
+        },
+      })
+    }
+  })
+}
+
+const shapes = (
+  tree: TestRenderer.ReactTestRenderer,
+  name: string
+): Array<Record<string, unknown>> =>
+  tree.root
+    .findAll(node => typeof node.type === 'string')
+    .filter(node => node.props.testID === `skia-${name}`)
+    .map(node => node.props)
+
+const noteRects = (tree: TestRenderer.ReactTestRenderer) =>
+  shapes(tree, 'Rect').filter(props => props.color === '#f472b6')
+
+const loadAudio = async () => {
+  act(() => {
+    mockAudioPlayer.finishLoading()
+  })
+  await drain()
+}
+
+const setAudioTime = (seconds: number) => {
+  mockAudioPlayer.currentTime = seconds
+  mockAudioPlayer.emit()
+}
+
+const ACHIEVEMENT = {
+  id: 'ach-rhythm-late',
+  name: 'Late Beat',
+  description: 'Land a late save',
+  icon: '🎵',
+  rarity: AchievementRarity.RARE,
+}
+
+beforeEach(() => {
+  submitScore.mockReset()
+  submitScore.mockResolvedValue({ success: true })
+  createdGames.length = 0
+  mockPush.mockReset()
+  mockAudioPlayer = new MockAudioPlayer()
+  mockCreateAudioPlayer.mockClear()
+  mockSetAudioModeAsync.mockClear()
+  rafQueue = []
+  nextRafId = 1
+  frameTime = 1_000_000
+  appStateHandlers.clear()
+  jest.spyOn(global, 'requestAnimationFrame').mockImplementation(cb => {
+    const id = nextRafId++
+    rafQueue.push({ id, cb })
+    return id
+  })
+  jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(id => {
+    rafQueue = rafQueue.filter(entry => entry.id !== id)
+  })
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_type, listener) => {
+      appStateHandlers.add(listener as (state: AppStateStatus) => void)
+      return {
+        remove: () =>
+          appStateHandlers.delete(listener as (state: AppStateStatus) => void),
+      } as never
+    })
+  jest
+    .spyOn(AccessibilityInfo, 'announceForAccessibility')
+    .mockImplementation(() => undefined)
+})
+
+afterEach(async () => {
+  for (const tree of trees.splice(0)) {
+    await act(async () => {
+      tree.unmount()
+    })
+  }
+  jest.restoreAllMocks()
+  jest.useRealTimers()
+})
+
+describe('Rhythm Reactor pilot — readiness and controls', () => {
+  test('gates Start on audio readiness and exposes labelled lanes, calibration and idle feedback', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+
+    // The bundled track is still loading: the shared chrome withholds every
+    // action and the board says what it is waiting for.
+    expect(tree.root.findByProps({ testID: 'host-binding' })).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
+    ).toHaveLength(0)
+    expect(testText(tree, 'rr-audio-state')).toBe('Loading click track…')
+
+    await loadAudio()
+
+    expect(tree.root.findAllByProps({ testID: 'host-binding' })).toHaveLength(0)
+    expect(control(tree, 'Start game')).toBeTruthy()
+    expect(testText(tree, 'rr-audio-state')).toBe('Click track ready')
+    expect(testText(tree, 'rr-status')).toBe('Waiting to start')
+    expect(testText(tree, 'rr-feedback')).toBe(
+      'Tap lanes as notes cross the hit line'
+    )
+    expect(testText(tree, 'rr-calibration')).toBe('Calibration +0 ms')
+    expect(testText(tree, 'game-time')).toBe('1:00')
+
+    for (let lane = 1; lane <= 4; lane += 1) {
+      const button = control(tree, `Tap lane ${lane}`)
+      expect(button.props.disabled).toBe(true)
+      expect(button.props.accessibilityState?.disabled).toBe(true)
+      expect(scalarText(button.props.children)).toContain(`Lane ${lane}`)
+    }
+    expect(control(tree, 'Calibration -10 ms').props.disabled).toBe(false)
+    expect(control(tree, 'Calibration +10 ms').props.disabled).toBe(false)
+
+    const summary = String(
+      tree.root.findByProps({ testID: 'rhythm-board' }).props.accessibilityLabel
+    )
+    expect(summary).toContain('Rhythm Reactor board')
+    expect(summary).toContain('4 lanes')
+    expect(summary).toContain('Waiting to start')
+    expect(summary).toContain('Calibration +0 milliseconds')
+
+    // The wide four-lane board sits in a ScrollView so short or
+    // text-enlarged viewports can still reach the controls.
+    expect(tree.root.findByType(ScrollView)).toBeTruthy()
+    const boardStyle = StyleSheet.flatten(
+      tree.root.findByProps({ testID: 'rhythm-board' }).props.style
+    )
+    expect(boardStyle.aspectRatio).toBeCloseTo(800 / 420)
+    expect(createdGames).toHaveLength(1)
+    expect(createdGames[0].getState().isActive).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a load failure shows the setup error, releases the player and never starts or posts', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    expect(createdGames).toHaveLength(1)
+
+    act(() => {
+      mockAudioPlayer.failLoading('unsupported codec')
+    })
+    await drain()
+
+    expect(tree.root.findByProps({ testID: 'host-setup-error' })).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
+    ).toHaveLength(0)
+    expect(createdGames[0].getState().isActive).toBe(false)
+    expect(createdGames[0].getTimerStatus().isRunning).toBe(false)
+    expect(mockAudioPlayer.remove).toHaveBeenCalledTimes(1)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a play failure leaves the model idle with explicit failure copy and no POST', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    mockAudioPlayer.play.mockImplementationOnce(() => {
+      throw new Error('audio session failed')
+    })
+
+    await press(tree, 'Start game')
+    await drain()
+    fireFrame(frameTime)
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().gameStarted).toBe(false)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'The click track could not start. Press Start to try again.'
+    )
+    expect(control(tree, 'Start game')).toBeTruthy()
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+})
+
+describe('Rhythm Reactor pilot — media clock', () => {
+  test('drives the model from player.currentTime only while playing', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+
+    // The native player has not reported playback yet: wall frames never
+    // advance the run.
+    mockAudioPlayer.play.mockImplementationOnce(() => {
+      mockAudioPlayer.playing = false
+    })
+    await press(tree, 'Start game')
+    await drain()
+    advanceFrames(10)
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(testText(tree, 'rr-status')).toBe('Count-in — get ready')
+
+    // Playback starts: the first frame catches the model up to the media.
+    mockAudioPlayer.playing = true
+    setAudioTime(0.52)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(game.getState().elapsedSeconds).toBeCloseTo(0.52, 6)
+
+    // A stalled media clock never advances the model, no matter how many
+    // wall frames pass (not a wall-clock countdown).
+    advanceFrames(5)
+    expect(game.getState().elapsedSeconds).toBeCloseTo(0.52, 6)
+  })
+
+  test('aborts a run whose player never starts instead of posting a zero score', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    mockAudioPlayer.play.mockImplementationOnce(() => {
+      mockAudioPlayer.playing = false
+    })
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+
+    // 1.5 s of delivered frames with no playback confirmation aborts to
+    // idle. The model never finishes, so nothing is posted.
+    advanceFrames(40)
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'The click track did not start. Press Start to try again.'
+    )
+    expect(control(tree, 'Start game')).toBeTruthy()
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a playback error during a live run aborts to idle without a POST', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+
+    act(() => {
+      mockAudioPlayer.error = 'audio interrupted'
+      mockAudioPlayer.playing = false
+      mockAudioPlayer.emit()
+    })
+    await drain()
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'Playback failed. Press Start to try again.'
+    )
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('catches up a 200 ms hitch in one update because the game accepts the full duration', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+
+    setAudioTime(0.05)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(game.getState().elapsedSeconds).toBeCloseTo(0.05, 6)
+
+    setAudioTime(0.25)
+    frameTime += 16
+    fireFrame(frameTime)
+    // A 0.1 s clamp would leave the model at 0.15.
+    expect(game.getState().elapsedSeconds).toBeCloseTo(0.25, 6)
+  })
+
+  test('advances to the current audio time before a between-frame tap', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+
+    // No frame has delivered the 2.0 s first note yet.
+    expect(game.getState().elapsedSeconds).toBe(0)
+    setAudioTime(RHYTHM_REACTOR_RULES.firstHitTimeSeconds)
+    await press(tree, 'Tap lane 1')
+
+    expect(game.getState().elapsedSeconds).toBeCloseTo(2, 6)
+    expect(game.getState().perfectHits).toBe(1)
+    expect(game.getState().misses).toBe(0)
+    expect(testText(tree, 'rr-feedback')).toBe('Perfect!')
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      'Lane 1: Perfect. Combo 1.'
+    )
+  })
+
+  test('judges the inclusive perfect and good windows and misses beyond good', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+
+    const start = async () => {
+      await press(tree, 'Start game')
+      await drain()
+    }
+    const reset = async () => {
+      await press(tree, 'Reset game')
+      await drain()
+    }
+    const tapAt = async (seconds: number, lane: string) => {
+      setAudioTime(seconds)
+      await press(tree, lane)
+    }
+
+    // Perfect boundary: first note (lane 1) at 2.0, tapped 80 ms early.
+    await start()
+    await tapAt(2 - RHYTHM_REACTOR_RULES.perfectWindowSeconds, 'Tap lane 1')
+    expect(game.getState().perfectHits).toBe(1)
+    expect(game.getState().goodHits).toBe(0)
+    await reset()
+
+    // Good boundary: the same note 160 ms early.
+    await start()
+    await tapAt(2 - RHYTHM_REACTOR_RULES.goodWindowSeconds, 'Tap lane 1')
+    expect(game.getState().perfectHits).toBe(0)
+    expect(game.getState().goodHits).toBe(1)
+    await reset()
+
+    // Beyond good but inside the miss window: consumed as a miss.
+    await start()
+    await tapAt(
+      2 - (RHYTHM_REACTOR_RULES.goodWindowSeconds + 0.01),
+      'Tap lane 1'
+    )
+    expect(game.getState().goodHits).toBe(0)
+    expect(game.getState().misses).toBe(1)
+    // The first note was consumed by the late press; the next chart note
+    // remains (lane 2, two beat steps after the first hit).
+    expect(game.getState().pendingNotes[0].hitTimeSeconds).toBe(
+      RHYTHM_REACTOR_RULES.firstHitTimeSeconds +
+        RHYTHM_REACTOR_RULES.beatStepSeconds * 2
+    )
+    expect(game.getState().pendingNotes[0].id).not.toBe('note-0')
+  })
+
+  test('positive calibration subtracts from player time and locks during a run', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+
+    for (let step = 0; step < 30; step += 1) {
+      await press(tree, 'Calibration +10 ms')
+    }
+    expect(testText(tree, 'rr-calibration')).toBe('Calibration +200 ms')
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(control(tree, 'Calibration +10 ms').props.disabled).toBe(true)
+    expect(control(tree, 'Calibration -10 ms').props.disabled).toBe(true)
+
+    // +200 ms means audio at 2.19 s maps to chart time 1.99 s.
+    setAudioTime(2.19)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(game.getState().elapsedSeconds).toBeCloseTo(1.99, 6)
+    await press(tree, 'Tap lane 1')
+    expect(game.getState().perfectHits).toBe(1)
+
+    // The bound is enforced from both sides and stays pre-run only.
+    await press(tree, 'Reset game')
+    await drain()
+    expect(control(tree, 'Calibration +10 ms').props.disabled).toBe(false)
+    for (let step = 0; step < 50; step += 1) {
+      await press(tree, 'Calibration -10 ms')
+    }
+    expect(testText(tree, 'rr-calibration')).toBe('Calibration -200 ms')
+  })
+
+  test('renders falling notes from the model clock with readable beat feedback', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    await press(tree, 'Start game')
+    await drain()
+
+    setAudioTime(0)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(testText(tree, 'rr-status')).toBe('Count-in — get ready')
+    const notesAtStart = noteRects(tree)
+    expect(notesAtStart.length).toBeGreaterThan(0)
+    const firstNoteY = Math.min(...notesAtStart.map(props => Number(props.y)))
+
+    setAudioTime(1.5)
+    frameTime += 16
+    fireFrame(frameTime)
+    const notesLater = noteRects(tree)
+    expect(
+      Math.min(...notesLater.map(props => Number(props.y)))
+    ).toBeGreaterThan(firstNoteY)
+    expect(testText(tree, 'rr-status')).toBe('Count-in — get ready')
+
+    setAudioTime(2)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(testText(tree, 'rr-status')).toBe('Playing — Beat 5')
+    expect(testText(tree, 'rr-feedback')).toBe('Tap the lit lanes on the beat')
+    expect(renderedText(tree)).toContain('Hits 0')
+    expect(renderedText(tree)).toContain('Combo ×0')
+  })
+})
+
+describe('Rhythm Reactor pilot — background policy', () => {
+  test('background aborts to idle without a POST and never auto-resumes; foreground starts fresh', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+    setAudioTime(2)
+    await press(tree, 'Tap lane 1')
+    expect(game.getState().perfectHits).toBe(1)
+    expect(game.getState().isActive).toBe(true)
+
+    // Two listeners: the generic host policy (non-pausable => no-op) and
+    // the Rhythm abort policy.
+    expect(appStateHandlers.size).toBe(2)
+    emitAppState('background')
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().gameStarted).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(game.getState().pendingNotes).toHaveLength(
+      (game as unknown as { config: { chart: unknown[] } }).config.chart.length
+    )
+    expect(game.getState().score).toBe(0)
+    expect(mockAudioPlayer.pause).toHaveBeenCalled()
+    expect(mockAudioPlayer.seekTo).toHaveBeenLastCalledWith(0)
+    expect(testText(tree, 'rr-notice')).toBe(
+      'Run stopped when the app left the foreground. Start again to replay.'
+    )
+    expect(testText(tree, 'rr-status')).toBe('Waiting to start')
+    expect(control(tree, 'Start game')).toBeTruthy()
+    expect(submitScore).not.toHaveBeenCalled()
+
+    // Foregrounding never auto-resumes.
+    emitAppState('active')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(1)
+
+    // A fresh Start begins a new run at the audio origin.
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(2)
+    setAudioTime(0.5)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(game.getState().elapsedSeconds).toBeCloseTo(0.5, 6)
+  })
+
+  test('an idle or finished run is untouched by backgrounding', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+
+    emitAppState('background')
+    emitAppState('active')
+    expect(game.getState().isActive).toBe(false)
+    expect(mockAudioPlayer.pause).not.toHaveBeenCalled()
+
+    await press(tree, 'Start game')
+    await drain()
+    act(() => {
+      ;(game as unknown as { handleTimeUp: () => void }).handleTimeUp()
+    })
+    await drain()
+    expect(game.getState().isGameOver).toBe(true)
+    const postsAfterFinish = submitScore.mock.calls.length
+    emitAppState('background')
+    expect(game.getState().isGameOver).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(postsAfterFinish)
+  })
+})
+
+describe('Rhythm Reactor pilot — finish, replay and rewards', () => {
+  test('a full 60-second run finishes with one POST and a clean Replay', async () => {
+    jest.useFakeTimers({
+      doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame'],
+    })
+    let tree: TestRenderer.ReactTestRenderer | undefined
+    await act(async () => {
+      tree = TestRenderer.create(
+        <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+      )
+      await Promise.resolve()
+    })
+    if (!tree) {
+      throw new Error('TestRenderer.create returned nothing')
+    }
+    trees.push(tree)
+    fireLayouts(tree)
+    act(() => {
+      mockAudioPlayer.finishLoading()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    setAudioTime(RHYTHM_REACTOR_RULES.firstHitTimeSeconds)
+    await press(tree, 'Tap lane 1')
+    expect(game.getState().perfectHits).toBe(1)
+
+    await act(async () => {
+      jest.advanceTimersByTime(60_000)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
+
+    expect(game.getState().isGameOver).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(submitScore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameId: GameID.RHYTHM_REACTOR,
+        platform: 'ios',
+        gameData: expect.objectContaining({ perfectHits: 1 }),
+      })
+    )
+    expect(testText(tree, 'final-score')).toBe(String(game.getState().score))
+    expect(testText(tree, 'result-save-status')).toBe('Score saved')
+
+    await press(tree, 'Play again')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(2)
+    expect(mockAudioPlayer.seekTo).toHaveBeenLastCalledWith(0)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+
+  test('a stale save is dropped but same-account late rewards still forward once', async () => {
+    let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+
+    act(() => {
+      ;(game as unknown as { handleTimeUp: () => void }).handleTimeUp()
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Saving score…')
+
+    await press(tree, 'Play again')
+    await drain()
+    expect(renderedText(tree)).not.toContain('Saving score…')
+
+    await act(async () => {
+      releaseSave?.({
+        success: true,
+        newAchievements: [ACHIEVEMENT],
+      })
+    })
+    await drain()
+
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('Score saved')
+    expect(rendered).not.toContain('Run complete')
+    expect(rendered.match(/Late Beat/g)).toHaveLength(1)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+
+  test('unmount releases the audio player and both AppState listeners without posting', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    const destroy = jest.spyOn(game, 'destroy')
+    await press(tree, 'Start game')
+    await drain()
+    expect(appStateHandlers.size).toBe(2)
+
+    await unmount(tree)
+
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(mockAudioPlayer.remove).toHaveBeenCalledTimes(1)
+    expect(mockAudioPlayer.pause).toHaveBeenCalled()
+    expect(appStateHandlers.size).toBe(0)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+})

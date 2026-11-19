@@ -83,6 +83,11 @@ import type {
     AsteroidDriftState,
     AsteroidDriftStats,
 } from '@cetus/games/asteroid-drift/types'
+import { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorState,
+} from '@cetus/games/rhythm-reactor/types'
 import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
 import type { CircuitHackerStats } from '@cetus/games/circuit-hacker/types'
 import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
@@ -92,6 +97,10 @@ import {
     projectCircuitHackerState,
 } from './circuit-hacker/controller'
 import { SatelliteSyncController } from './satellite-sync/controller'
+import {
+    createRhythmReactorRun,
+    getRhythmReactorRun,
+} from './rhythm-reactor/run'
 import {
     ICE_SLIDE_INITIAL_PROJECTION,
     IceSlideController,
@@ -113,6 +122,7 @@ import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
 import { ReflexBoard } from './boards/ReflexBoard'
+import { RhythmReactorBoard } from './boards/RhythmReactorBoard'
 import { SatelliteSyncBoard } from './boards/SatelliteSyncBoard'
 import { SignalSwitchBoard } from './boards/SignalSwitchBoard'
 import { SnakeBoard } from './boards/SnakeBoard'
@@ -169,6 +179,20 @@ export interface NativeGamePort {
     /** Optional result-sheet outcome label derived from the finished
      * run's stats (e.g. Chromatic Tide Cleared/Timeout); null hides it. */
     resultOutcomeLabel?: (stats: BaseGameStats) => string | null
+    /** Async pre-run preparation the host awaits before enabling the shared
+     *  Start/Replay actions (Rhythm Reactor's bundled audio). */
+    prepare?: (game: BaseGame) => Promise<void>
+    /** Optional Start/Replay seam: the port owns pre-run readiness and calls
+     *  `game.start()` only on success. */
+    startRun?: (game: BaseGame) => void | Promise<void>
+    /** Optional manual Reset seam so a port can stop its resources and still
+     *  reset the model locally. */
+    resetRun?: (game: BaseGame) => void
+    /** Optional runtime-lifecycle hook (e.g. a game-specific AppState
+     *  policy); the returned unsubscribe runs on runtime disposal. */
+    attachLifecycle?: (game: BaseGame) => () => void
+    /** Optional runtime-owned teardown before the model is destroyed. */
+    disposeRun?: (game: BaseGame) => void
     view?: ComponentType<NativeGameViewProps>
 }
 
@@ -1022,6 +1046,61 @@ const asteroidDriftPort: NativeGamePort = {
     view: AsteroidDriftBoard,
 }
 
+const selectRhythmReactorView = (
+    state: BaseGameState
+): NativeGameProjection => {
+    const {
+        perfectHits,
+        goodHits,
+        misses,
+        strayPresses,
+        combo,
+        maxCombo,
+        stability,
+        lastJudgment,
+    } = state as RhythmReactorState
+    return {
+        hits: perfectHits + goodHits,
+        perfectHits,
+        goodHits,
+        misses,
+        strayPresses,
+        combo,
+        maxCombo,
+        stability,
+        judgment: lastJudgment?.toUpperCase() ?? 'READY',
+    }
+}
+
+const rhythmReactorGame = (game: BaseGame): RhythmReactorGame =>
+    game as RhythmReactorGame
+
+const rhythmReactorPort: NativeGamePort = {
+    createGame: deps => {
+        const game = new RhythmReactorGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+            // The shared frame loop feeds the model one absolute media-time
+            // delta; allow the whole 60 s so a 200 ms hitch catches up.
+            maxUpdateDelta: RHYTHM_REACTOR_RULES.duration,
+        })
+        createRhythmReactorRun(game)
+        return game
+    },
+    project: selectRhythmReactorView,
+    createProjector: () => createStableProjector(selectRhythmReactorView),
+    // The bundled click track must be decoded before the shared Start/Replay
+    // UI unlocks; a rejection takes the host's setup-error retry path.
+    prepare: game => getRhythmReactorRun(rhythmReactorGame(game)).prepare(),
+    // Start/Replay stays idle when the track cannot play.
+    startRun: game => getRhythmReactorRun(rhythmReactorGame(game)).start(),
+    resetRun: game => getRhythmReactorRun(rhythmReactorGame(game)).reset(),
+    attachLifecycle: game =>
+        getRhythmReactorRun(rhythmReactorGame(game)).attachAppState(),
+    disposeRun: game => getRhythmReactorRun(rhythmReactorGame(game)).dispose(),
+    view: RhythmReactorBoard,
+}
+
 // Handle-based port: CircuitHackerGame is callback/imperative (no BaseGame,
 // no pause API) and takes difficulty only in its constructor. The
 // controller owns the pre-run selection and the zero-argument replay.
@@ -1081,7 +1160,7 @@ const iceSlideHandlePort: NativeHandlePort = {
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Twenty-two playable, one
+ * Play button and the play route all consult. Twenty-three playable, none
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -1104,6 +1183,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.TETRIS]: { port: tetrisPort },
     [GameID.BEJEWELED]: { port: bejeweledPort },
     [GameID.BUBBLE_SHOOTER]: { port: bubbleShooterPort },
+    [GameID.RHYTHM_REACTOR]: { port: rhythmReactorPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
     [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
     [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },

@@ -40,6 +40,9 @@ export interface NativeGameRuntime {
   binding: unknown
   view: ComponentType<NativeGameRuntimeViewProps> | null
   outcomeLabel?: (result: GameSessionResult) => string | null
+  /** Awaited by the host before the shared Start/Replay UI unlocks; a
+   *  rejection takes the host's setup-error retry path. */
+  prepare?: () => Promise<void>
   onRewards: (handler: (delivery: NativeRewardDelivery) => void) => () => void
   onRunStart: (handler: () => void) => () => void
   dispose: () => void
@@ -60,18 +63,50 @@ export function createBaseGameRuntime(
   // A projector (or the session's initial projection) can throw. Roll the
   // partially-built runtime back before rethrowing so the host's setup
   // error path never leaks a live game/timer.
-  let session: GameSession<NativeGameProjection>
+  let baseSession: GameSession<NativeGameProjection>
   try {
     const projector = port.createProjector
       ? port.createProjector(game)
       : createStableProjector((state: BaseGameState) =>
           port.project(state, game)
         )
-    session = createBaseGameSession(game, projector)
+    baseSession = createBaseGameSession(game, projector)
   } catch (error) {
     game.destroy()
     throw error
   }
+  let detachLifecycle: (() => void) | null = null
+  try {
+    detachLifecycle = port.attachLifecycle?.(game) ?? null
+  } catch (error) {
+    baseSession.dispose()
+    game.destroy()
+    throw error
+  }
+
+  // A port with its own readiness seam owns Start/Replay and Reset; leaving
+  // `actions.start` untouched would bypass its pre-run audio gate.
+  const startRun = port.startRun
+  const resetRun = port.resetRun
+  const session: GameSession<NativeGameProjection> =
+    startRun || resetRun
+      ? {
+          ...baseSession,
+          actions: {
+            ...baseSession.actions,
+            start: startRun
+              ? () => {
+                  void Promise.resolve(startRun(game)).catch(() => {})
+                }
+              : baseSession.actions.start,
+            reset: resetRun
+              ? () => {
+                  resetRun(game)
+                }
+              : baseSession.actions.reset,
+          },
+        }
+      : baseSession
   const rewardHandlers = new Set<(delivery: NativeRewardDelivery) => void>()
   const runStartHandlers = new Set<() => void>()
   let disposed = false
@@ -103,6 +138,8 @@ export function createBaseGameRuntime(
     : null
 
   const label = port.resultOutcomeLabel
+  const prepare = port.prepare
+  const disposeRun = port.disposeRun
 
   return {
     session,
@@ -111,6 +148,7 @@ export function createBaseGameRuntime(
     outcomeLabel: label
       ? (result: GameSessionResult) => label(result.stats)
       : undefined,
+    prepare: prepare ? () => prepare(game) : undefined,
     onRewards: handler => {
       rewardHandlers.add(handler)
       return () => {
@@ -130,6 +168,9 @@ export function createBaseGameRuntime(
       disposed = true
       game.off('start', emitRunStart)
       removeForwarder()
+      detachLifecycle?.()
+      detachLifecycle = null
+      disposeRun?.(game)
       session.dispose()
       game.destroy()
       rewardHandlers.clear()
