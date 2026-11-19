@@ -902,6 +902,81 @@ describe('Satellite Sync pilot — accessible aiming', () => {
     ).toBe(true)
   })
 
+  test('a same-level Replay clears the previous run’s selection', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+    await pressMatching(tree, /^Select satellite 1: cyan$/)
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Select satellite 1: cyan' })
+        .props.accessibilityState?.selected
+    ).toBe(true)
+
+    // A level-1 timeout ends the run with the level index unchanged, so a
+    // Replay starts a new model on the same level.
+    act(() => {
+      const timeout = controllerOf(tree).getGame() as unknown as {
+        handleTimeout: () => void
+      }
+      timeout.handleTimeout()
+    })
+    await drain()
+    await press(tree, 'Play again')
+    fireFrame(200)
+
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Select satellite 1: cyan' })
+        .props.accessibilityState?.selected
+    ).toBe(false)
+    const target = tree.root.findByProps({
+      accessibilityLabel: 'Lock target 1: cyan, unlocked',
+    })
+    expect(target.props.disabled).toBe(true)
+    expect(target.props.accessibilityHint).toBe('Select a satellite first')
+    expect(tree.root.findAllByProps({ testID: 'ss-aim-status' })).toHaveLength(
+      0
+    )
+  })
+
+  test('the lock that clears a level does not leave stale lock copy behind', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+    const controller = controllerOf(tree)
+    const game = controller.getGame() as SatelliteSyncGame
+
+    // Clear level 1 through the board's screen-reader controls: two locks
+    // set the status copy, and the third lock completes the level.
+    for (const index of [1, 2, 3]) {
+      await pressMatching(tree, new RegExp(`^Select satellite ${index}: cyan$`))
+      await pressMatching(
+        tree,
+        new RegExp(`^Lock target ${index}: cyan, unlocked$`)
+      )
+    }
+    await drain()
+
+    expect(game.getState().levelIndex).toBe(1)
+    expect(testText(tree, 'ss-level')).toBe(`Level 2 / ${LEVEL_COUNT}`)
+    // The cleared level's "Target N locked" copy must not describe the new
+    // level's untouched targets.
+    expect(tree.root.findAllByProps({ testID: 'ss-aim-status' })).toHaveLength(
+      0
+    )
+
+    // Flush the deferred entity swap; the cleared copy stays gone.
+    act(() => {
+      controller.update(0)
+    })
+    await drain()
+    expect(game.getState().levelIndex).toBe(1)
+    expect(tree.root.findAllByProps({ testID: 'ss-aim-status' })).toHaveLength(
+      0
+    )
+  })
+
   test('selecting a satellite then a target locks it through the model and announces the result', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
     await press(tree, 'Start game')
