@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import { GameID } from '@cetus/shared/games'
 import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
+import type { Piece } from '@cetus/games/tetris/types'
 import { rotateMatrix } from '@cetus/games/tetris/utils'
 
 jest.mock('../src/lib/api', () => mockApiModule)
@@ -252,13 +253,31 @@ const blockSpawnRow = (game: TetrisGame) => {
   }
 }
 
+/** Model-required piece accessors: a missing piece fails the test here
+ *  instead of a non-null assertion warning. */
+const requirePiece = (piece: Piece | null): Piece => {
+  if (piece === null) {
+    throw new Error('expected a piece')
+  }
+  return piece
+}
+
+const currentPiece = (game: TetrisGame): Piece =>
+  requirePiece(game.getState().currentPiece)
+
+const nextPiece = (game: TetrisGame): Piece =>
+  requirePiece(game.getState().nextPiece)
+
+const heldPiece = (game: TetrisGame): Piece =>
+  requirePiece(game.getState().heldPiece)
+
 describe('Tetris pilot — board', () => {
   test('renders the idle 10×20 field, next/hold previews and an elapsed clock', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.TETRIS} />)
     fireLayouts(tree)
 
     const game = createdGames[0]
-    const nextType = game.getState().nextPiece!.type
+    const nextType = nextPiece(game).type
 
     // The model counts down from MAX_SAFE_INTEGER; the chrome must show the
     // projected elapsed clock instead of a 285-million-hour countdown.
@@ -301,7 +320,7 @@ describe('Tetris pilot — board', () => {
     await press(tree, 'Start game')
     fireFrame(16)
 
-    const spawned = game.getState().currentPiece!
+    const spawned = currentPiece(game)
     const spawnedY = spawned.y
     expect(spawned.type).toBe('T')
     expect(pieceRects(tree)).toHaveLength(4)
@@ -321,7 +340,7 @@ describe('Tetris pilot — board', () => {
     // Gravity keeps the model's Date.now() clock: no delta plumbing needed.
     now += 1001
     fireFrame(32)
-    expect(game.getState().currentPiece!.y).toBe(spawnedY + 1)
+    expect(currentPiece(game).y).toBe(spawnedY + 1)
     const dropped = Math.min(
       ...pieceRects(tree).map(props => props.y as number)
     )
@@ -353,7 +372,7 @@ describe('Tetris pilot — board', () => {
 
     await press(tree, 'Start game')
     fireFrame(16)
-    const before = game.getState().currentPiece!
+    const before = currentPiece(game)
     const beforeShape = before.shape.map(row => [...row])
     const beforeX = before.x
     const beforeY = before.y
@@ -363,7 +382,7 @@ describe('Tetris pilot — board', () => {
     await press(tree, 'Rotate piece')
     fireFrame(32)
 
-    const after = game.getState().currentPiece!
+    const after = currentPiece(game)
     expect(after.shape).toEqual(expected)
     expect(after.shape).not.toEqual(beforeShape)
     expect(after.x).toBe(beforeX)
@@ -442,31 +461,31 @@ describe('Tetris pilot — board', () => {
 
     await press(tree, 'Start game')
     fireFrame(16)
-    const start = game.getState().currentPiece!
+    const start = currentPiece(game)
     expect(start.x).toBe(3)
     expect(start.y).toBe(0)
 
     swipe(tree, -40, 0)
-    expect(game.getState().currentPiece!.x).toBe(2)
+    expect(currentPiece(game).x).toBe(2)
     swipe(tree, 40, 0)
-    expect(game.getState().currentPiece!.x).toBe(3)
+    expect(currentPiece(game).x).toBe(3)
     swipe(tree, 0, 40)
-    expect(game.getState().currentPiece!.y).toBe(1)
+    expect(currentPiece(game).y).toBe(1)
 
     // Cancelled pan: the finger left the board / the scroll took over.
     swipe(tree, -40, 0, false)
-    expect(game.getState().currentPiece!.x).toBe(3)
+    expect(currentPiece(game).x).toBe(3)
 
     // A duplicate final callback for one gesture must not move twice.
     beginSwipe(tree)
     endSwipe(tree, -40, 0)
-    expect(game.getState().currentPiece!.x).toBe(2)
+    expect(currentPiece(game).x).toBe(2)
     endSwipe(tree, -40, 0)
-    expect(game.getState().currentPiece!.x).toBe(2)
+    expect(currentPiece(game).x).toBe(2)
 
     // An upward swipe has no bound command.
     swipe(tree, 0, -40)
-    expect(game.getState().currentPiece!.y).toBe(1)
+    expect(currentPiece(game).y).toBe(1)
   })
 
   test('a Hold swaps once per piece and is refused until the piece locks', async () => {
@@ -476,13 +495,13 @@ describe('Tetris pilot — board', () => {
 
     await press(tree, 'Start game')
     fireFrame(16)
-    const first = game.getState().currentPiece!
-    const upcoming = game.getState().nextPiece!
+    const first = currentPiece(game)
+    const upcoming = nextPiece(game)
 
     await press(tree, 'Hold piece')
     fireFrame(32)
     let state = game.getState()
-    expect(state.heldPiece!.type).toBe(first.type)
+    expect(heldPiece(game).type).toBe(first.type)
     expect(state.currentPiece).toBe(upcoming)
     expect(state.holdUsed).toBe(true)
     expect(testText(tree, 'tetris-hold')).toBe(`Hold ${first.type}`)
@@ -510,7 +529,7 @@ describe('Tetris pilot — board', () => {
 
     await press(tree, 'Hold piece')
     fireFrame(64)
-    expect(game.getState().currentPiece!.type).toBe(first.type)
+    expect(currentPiece(game).type).toBe(first.type)
   })
 
   test('pause sleeps the loop; resume keeps the model Date.now gravity', async () => {
@@ -520,7 +539,7 @@ describe('Tetris pilot — board', () => {
 
     await press(tree, 'Start game')
     fireFrame(16)
-    const y = game.getState().currentPiece!.y
+    const y = currentPiece(game).y
 
     await press(tree, 'Pause game')
     fireFrame(32)
@@ -534,13 +553,13 @@ describe('Tetris pilot — board', () => {
     ).toBe(true)
 
     now += 10_000
-    expect(game.getState().currentPiece!.y).toBe(y)
+    expect(currentPiece(game).y).toBe(y)
 
     await press(tree, 'Resume game')
     expect(game.getState().isPaused).toBe(false)
     now += 1001
     fireFrame(48)
-    expect(game.getState().currentPiece!.y).toBe(y + 1)
+    expect(currentPiece(game).y).toBe(y + 1)
   })
 })
 
