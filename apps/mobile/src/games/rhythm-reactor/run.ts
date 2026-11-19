@@ -358,14 +358,16 @@ export class RhythmReactorRun {
                 : Math.max(0, (Date.now() - this.runStartedAtMs) / 1000)
         const atMediaEnd =
             player.currentTime >= RHYTHM_REACTOR_RULES.duration - 0.05
-        const finalNotePassed =
+        const modelResolved = state.pendingNotes.length === 0
+        const finalNoteWindowResolved =
+            modelResolved ||
             player.currentTime + 0.05 >= this.finalNoteResolvedSeconds
         const mediaGap = elapsedWallSeconds - player.currentTime
         if (!player.playing) {
-            // A finished track / passed final note stops reporting playback
-            // before or as the wall timer ends; catch up so the completion
-            // gate sees the model's final position.
-            if (atMediaEnd || finalNotePassed) {
+            // A finished track / fully resolved chart stops reporting
+            // playback before or as the wall timer ends; catch up so the
+            // completion gate sees the model's final position.
+            if (atMediaEnd || finalNoteWindowResolved) {
                 this.catchUpToAudio(player, state.elapsedSeconds)
                 return
             }
@@ -378,7 +380,7 @@ export class RhythmReactorRun {
         }
         if (
             !atMediaEnd &&
-            !finalNotePassed &&
+            !finalNoteWindowResolved &&
             mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS
         ) {
             this.playError =
@@ -464,9 +466,14 @@ export class RhythmReactorRun {
             player !== null &&
             this.audioLoaded &&
             player.currentTime + 0.05 >= this.finalNoteResolvedSeconds
-        const modelReachedFinalNote =
+        // Every note already consumed (hit, missed or expired) is a finished
+        // chart even if its last judged clock position is short of the final
+        // miss-window boundary. This preserves an earned score when frames
+        // stop after the final hit; unresolved charts still abort.
+        const modelResolved =
+            state.pendingNotes.length === 0 ||
             state.elapsedSeconds + 0.05 >= this.finalNoteResolvedSeconds
-        if (!mediaReachedFinalNote || !modelReachedFinalNote) {
+        if (!mediaReachedFinalNote || !modelResolved) {
             this.playError =
                 'Playback was interrupted. Press Start to try again.'
             this.abortActiveRun(null)
