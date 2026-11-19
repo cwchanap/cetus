@@ -55,6 +55,11 @@ import type {
 } from '@cetus/games/path-navigator/types'
 import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
 import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
+import { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorState,
+} from '@cetus/games/rhythm-reactor/types'
 import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
 import type { CircuitHackerController } from '../src/games/circuit-hacker/controller'
 import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
@@ -86,6 +91,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.TETRIS, TetrisGame],
     [GameID.BEJEWELED, BejeweledGame],
     [GameID.BUBBLE_SHOOTER, BubbleShooterGame],
+    [GameID.RHYTHM_REACTOR, RhythmReactorGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -93,7 +99,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty-two games
+// HPA-425 wave 1 plus HPA-535 Stages 1–5: exactly these twenty-three games
 // are native-destined. The list is duplicated here on purpose — the test
 // must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
@@ -113,6 +119,7 @@ const EXPECTED_NATIVE_IDS = [
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
     GameID.REFLEX,
+    GameID.RHYTHM_REACTOR,
     GameID.SATELLITE_SYNC,
     GameID.SIGNAL_SWITCH,
     GameID.SNAKE,
@@ -124,7 +131,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the twenty-two registry game ids', () => {
+    test('contains exactly the twenty-three registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -133,16 +140,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 22 playable, 1 disabled of 23', () => {
+    test('registry and catalog counts line up: 23 playable, 0 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(22)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(23)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(1)
+        expect(disabled).toHaveLength(0)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -158,8 +165,9 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The last unported registry game stays disabled.
-        expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(false)
+        // The final unported registry game is now live; every catalog entry
+        // is playable on mobile.
+        expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(true)
         expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(true)
         expect(isNativePlayable(GameID.BEJEWELED)).toBe(true)
         expect(isNativePlayable(GameID.TETRIS)).toBe(true)
@@ -643,6 +651,70 @@ describe('NATIVE_GAMES registry', () => {
             shotsFired: 3,
             projectile: true,
             canShoot: false,
+        })
+        game.destroy()
+    })
+
+    test('the Rhythm Reactor port ships the audio-gated board, HUD projection and 60 s clock cap', () => {
+        const port = getNativeGameEntry(GameID.RHYTHM_REACTOR)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        expect(port.prepare).toBeDefined()
+        expect(port.startRun).toBeDefined()
+        expect(port.resetRun).toBeDefined()
+        expect(port.attachLifecycle).toBeDefined()
+        expect(port.disposeRun).toBeDefined()
+
+        const game = port.createGame(hostDeps('ios')) as RhythmReactorGame
+        // Web keeps its 0.1 s cap; native accepts the full 60 s media delta
+        // so a frame hitch catches the model up in one update.
+        const config = (
+            game as unknown as {
+                config: {
+                    maxUpdateDelta: number
+                    beatStepSeconds: number
+                    firstHitTimeSeconds: number
+                }
+            }
+        ).config
+        expect(config.maxUpdateDelta).toBe(RHYTHM_REACTOR_RULES.duration)
+        expect(config.firstHitTimeSeconds).toBe(2)
+        expect(config.beatStepSeconds).toBe(0.5)
+
+        expect(port.project(game.getState(), game)).toEqual({
+            hits: 0,
+            perfectHits: 0,
+            goodHits: 0,
+            misses: 0,
+            strayPresses: 0,
+            combo: 0,
+            maxCombo: 0,
+            stability: RHYTHM_REACTOR_RULES.initialStability,
+            judgment: 'READY',
+        })
+        expect(
+            game
+                .getState()
+                .pendingNotes.slice(0, 3)
+                .map(note => note.hitTimeSeconds)
+        ).toEqual([2, 3, 4])
+
+        const live = (game as unknown as { state: RhythmReactorState }).state
+        live.perfectHits = 2
+        live.goodHits = 1
+        live.combo = 3
+        live.maxCombo = 3
+        live.lastJudgment = 'perfect'
+        expect(port.project(game.getState(), game)).toMatchObject({
+            hits: 3,
+            perfectHits: 2,
+            goodHits: 1,
+            combo: 3,
+            maxCombo: 3,
+            judgment: 'PERFECT',
         })
         game.destroy()
     })
