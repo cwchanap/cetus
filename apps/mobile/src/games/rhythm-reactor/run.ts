@@ -17,9 +17,15 @@ export const RHYTHM_REACTOR_CALIBRATION_LIMIT_MS = 200
  *  shared binding-pending shell up forever. */
 const LOAD_TIMEOUT_MS = 10_000
 
-/** Frames delivered without media playback confirmation before the run is
- *  aborted. This is the JS-side guard for a silently refused `play()`. */
-const PLAYBACK_CONFIRM_SECONDS = 1.5
+/** Bounded confirmation window after `play()`: expo's `play()` can return
+ *  without actually starting playback (notably Android). The model and its
+ *  independent wall timer stay idle until the player proves it is playing. */
+const PLAYBACK_CONFIRM_TIMEOUT_MS = 1_500
+
+/** Cumulative media/wall gap tolerated after confirmation. Audio that falls
+ *  this far behind the wall timer means the last chart notes would otherwise
+ *  be cut off by a scored wall-clock finish. */
+const MEDIA_CONTINUITY_TOLERANCE_SECONDS = 0.4
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro asset id
 const METRONOME_SOURCE = require('../../../assets/audio/rhythm-reactor-metronome.m4a')
@@ -113,9 +119,23 @@ export class RhythmReactorRun {
     } | null = null
     private loadTimer: ReturnType<typeof setTimeout> | null = null
     private starting = false
+    private startAttempt = 0
     private aborting = false
+    private audioLoaded = false
     private audioSessionReady = false
-    private unconfirmedPlaybackSeconds = 0
+    private wallSeconds = 0
+    private appIsActive =
+        typeof AppState.currentState === 'string'
+            ? AppState.currentState === 'active'
+            : true
+    private playbackGate: {
+        attempt: number
+        check: () => boolean
+        resolve: () => void
+        reject: (error: Error) => void
+    } | null = null
+    private playbackGateTimer: ReturnType<typeof setTimeout> | null = null
+    private playbackGateInterval: ReturnType<typeof setInterval> | null = null
     private disposed = false
 
     constructor(
@@ -130,7 +150,12 @@ export class RhythmReactorRun {
      *  or timeout so the host can show its setup-error retry path. */
     prepare(): Promise<void> {
         if (this.prepared === null) {
-            this.prepared = this.prepareInternal()
+            this.prepared = this.prepareInternal().catch(error => {
+                // A failed preparation must not stay cached: Start/Replay is
+                // the documented retry path and re-runs preparation.
+                this.prepared = null
+                throw error
+            })
         }
         return this.prepared
     }
@@ -196,50 +221,89 @@ export class RhythmReactorRun {
     }
 
     /**
-     * Chrome Start/Replay seam. The model never starts unless the track is
-     * loaded and `play()` is accepted; a rejection keeps it idle.
+     * Chrome Start/Replay seam. Playback must be confirmed (and the source
+     * rewound) before the model and its independent wall timer start; a
+     * refused/delayed start keeps both idle. Backgrounding invalidates the
+     * pending attempt at every async boundary.
      */
     async start(): Promise<void> {
-        if (this.starting) {
+        if (this.starting || this.game.getState().isActive) {
             return
         }
-        const state = this.game.getState()
-        if (state.isActive) {
-            return
-        }
+        const attempt = ++this.startAttempt
         this.starting = true
         this.playError = null
         this.notice = null
-        this.unconfirmedPlaybackSeconds = 0
+        let failureMessage =
+            'The click track could not start. Press Start to try again.'
         try {
+            if (!this.isStartCurrent(attempt)) {
+                return
+            }
+            failureMessage =
+                'The click track failed to load. Press Start to try again.'
+            try {
+                await this.ensureAudioReady()
+            } catch {
+                throw new Error(failureMessage)
+            }
+            if (!this.isStartCurrent(attempt)) {
+                return
+            }
+            if (this.player === null || !this.audioLoaded) {
+                throw new Error(failureMessage)
+            }
+            failureMessage =
+                'The click track could not start. Press Start to try again.'
+            try {
+                await this.ensureAudioSession()
+            } catch {
+                throw new Error(failureMessage)
+            }
+            if (!this.isStartCurrent(attempt)) {
+                return
+            }
             const player = this.player
-            if (
-                player === null ||
-                this.audioState !== 'ready' ||
-                !player.isLoaded
-            ) {
-                this.playError =
-                    'The click track is not ready. Press Start to try again.'
+            if (player === null) {
+                throw new Error(failureMessage)
+            }
+            try {
+                await player.seekTo(0)
+            } catch {
+                throw new Error(failureMessage)
+            }
+            if (!this.isStartCurrent(attempt)) {
                 return
             }
-            await this.ensureAudioSession()
-            if (this.disposed || this.game.getState().isActive) {
+            if (this.player === null || !this.audioLoaded) {
+                throw new Error(failureMessage)
+            }
+            try {
+                player.play()
+            } catch {
+                throw new Error(failureMessage)
+            }
+            await this.waitForPlayback(attempt)
+            if (!this.isStartCurrent(attempt)) {
                 return
             }
-            await player.seekTo(0)
-            if (this.disposed || this.game.getState().isActive) {
-                return
-            }
-            player.play()
+            this.wallSeconds = 0
             this.game.start()
-        } catch {
-            if (this.game.getState().isActive) {
-                this.game.reset()
+        } catch (error) {
+            // A background/disposal invalidation is not a failure to show:
+            // the attempt simply must not start later.
+            if (!this.isStartCurrent(attempt)) {
+                return
             }
             this.playError =
-                'The click track could not start. Press Start to try again.'
+                error instanceof Error && error.message
+                    ? error.message
+                    : failureMessage
+            this.stopAudio()
         } finally {
-            this.starting = false
+            if (attempt === this.startAttempt) {
+                this.starting = false
+            }
             this.notify()
         }
     }
@@ -247,48 +311,58 @@ export class RhythmReactorRun {
     /** Manual Reset: stop/rewind the track and clear the run locally. */
     reset(): void {
         this.stopAudio()
-        this.unconfirmedPlaybackSeconds = 0
+        this.wallSeconds = 0
         this.playError = null
         this.notice = null
         this.game.reset()
         this.notify()
     }
 
-    /** One shared-frame-loop step. The delta argument only drives the silent
-     *  playback watchdog; chart time always comes from `player.currentTime`. */
+    /** One shared-frame-loop step. `deltaSeconds` only measures the wall/
+     *  media continuity gap; chart time always comes from player.currentTime. */
     advance(deltaSeconds: number): void {
         const state = this.game.getState()
         if (!state.isActive || state.isPaused || state.isGameOver) {
-            this.unconfirmedPlaybackSeconds = 0
+            this.wallSeconds = 0
             return
         }
         const player = this.player
-        if (player === null || !player.isLoaded || !player.playing) {
+        if (player === null || !this.audioLoaded) {
+            this.playError =
+                'Playback was interrupted. Press Start to try again.'
+            this.abortActiveRun(null)
+            return
+        }
+        this.wallSeconds += Math.max(0, deltaSeconds)
+        const atMediaEnd =
+            player.currentTime >= RHYTHM_REACTOR_RULES.duration - 0.05
+        const mediaGap = this.wallSeconds - player.currentTime
+        if (!player.playing) {
             // A finished 60 s track stops reporting playback just before the
-            // independent wall timer ends: never mistake that for a refused
-            // start.
-            if (
-                player !== null &&
-                player.currentTime >= RHYTHM_REACTOR_RULES.duration - 0.05
-            ) {
+            // independent wall timer ends: never mistake that for a stall.
+            if (atMediaEnd) {
                 return
             }
-            this.unconfirmedPlaybackSeconds += Math.max(0, deltaSeconds)
-            if (this.unconfirmedPlaybackSeconds >= PLAYBACK_CONFIRM_SECONDS) {
+            if (mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS) {
                 this.playError =
-                    'The click track did not start. Press Start to try again.'
+                    'Playback was interrupted. Press Start to try again.'
                 this.abortActiveRun(null)
             }
             return
         }
-        this.unconfirmedPlaybackSeconds = 0
+        if (!atMediaEnd && mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS) {
+            this.playError =
+                'Playback was interrupted. Press Start to try again.'
+            this.abortActiveRun(null)
+            return
+        }
         this.catchUpToAudio(player, state.elapsedSeconds)
     }
 
     /** Lane tap: catch up to the media position before the model judges it. */
     tap(laneIndex: number): RhythmReactorHitResult {
         const player = this.player
-        if (player !== null && player.isLoaded && player.playing) {
+        if (player !== null && this.audioLoaded && player.playing) {
             this.catchUpToAudio(player, this.game.getState().elapsedSeconds)
         }
         return this.game.hitLane(laneIndex)
@@ -296,14 +370,21 @@ export class RhythmReactorRun {
 
     /**
      * Rhythm-specific background policy: leaving the foreground aborts a
-     * live run to idle. No pausing, no auto-resume, no score POST.
+     * live run to idle and invalidates any pending Start/Replay. No pausing,
+     * no auto-resume, no score POST.
      */
     attachAppState(): () => void {
         if (this.appStateSubscription === null) {
             this.appStateSubscription = AppState.addEventListener(
                 'change',
                 next => {
-                    if (next !== 'active' && this.game.getState().isActive) {
+                    if (next === 'active') {
+                        this.appIsActive = true
+                        return
+                    }
+                    this.appIsActive = false
+                    this.invalidatePendingStart()
+                    if (this.game.getState().isActive) {
                         this.notice =
                             'Run stopped when the app left the foreground. Start again to replay.'
                         this.abortActiveRun(this.notice)
@@ -319,29 +400,18 @@ export class RhythmReactorRun {
             return
         }
         this.disposed = true
+        this.startAttempt += 1
+        this.starting = false
+        this.settlePlaybackGate(new Error(''))
         this.detachAppState()
         this.clearLoadWait()
-        this.statusSubscription?.remove()
-        this.statusSubscription = null
-        const player = this.player
-        this.player = null
-        if (player !== null) {
-            try {
-                player.pause()
-            } catch {
-                // A released native player may already be paused/gone.
-            }
-            try {
-                player.remove()
-            } catch {
-                // Release is best-effort during teardown.
-            }
-        }
+        this.disposePlayer()
         this.wakeHandlers.clear()
     }
 
     private async prepareInternal(): Promise<void> {
         this.audioState = 'loading'
+        this.audioLoaded = false
         this.notify()
         try {
             const player = await this.createPlayer()
@@ -359,8 +429,12 @@ export class RhythmReactorRun {
                 status => this.handleStatus(status)
             )
             await new Promise<void>((resolve, reject) => {
-                if (player.isLoaded) {
+                if (player.isLoaded || this.audioLoaded) {
                     resolve()
+                    return
+                }
+                if (this.audioState === 'error') {
+                    reject(new Error('Audio failed to load'))
                     return
                 }
                 this.loadWaiter = { resolve, reject }
@@ -368,6 +442,7 @@ export class RhythmReactorRun {
                     const waiter = this.loadWaiter
                     this.loadWaiter = null
                     this.audioState = 'error'
+                    this.audioLoaded = false
                     this.notify()
                     waiter?.reject(new Error('Audio load timed out'))
                 }, LOAD_TIMEOUT_MS)
@@ -376,12 +451,14 @@ export class RhythmReactorRun {
                 return
             }
             this.clearLoadWait()
+            this.audioLoaded = true
             this.audioState = 'ready'
             this.notify()
         } catch (error) {
             this.clearLoadWait()
             if (!this.disposed) {
                 this.audioState = 'error'
+                this.audioLoaded = false
                 this.notify()
             }
             throw error
@@ -395,17 +472,54 @@ export class RhythmReactorRun {
         if (status.error) {
             if (this.game.getState().isActive) {
                 this.playError = 'Playback failed. Press Start to try again.'
+                this.audioState = 'error'
+                this.audioLoaded = false
+                this.prepared = null
                 this.abortActiveRun(null)
             } else {
                 this.failLoad(new Error(status.error))
+                this.settlePlaybackGate(
+                    new Error('Playback failed. Press Start to try again.')
+                )
             }
             return
         }
-        if (status.isLoaded && this.audioState !== 'ready') {
-            this.audioState = 'ready'
-            this.resolveLoadWait()
-            this.notify()
+        if (status.isLoaded) {
+            // Expo on Android excludes STATE_ENDED from the player getter,
+            // while the status still reports ended audio as loaded. Track
+            // status readiness separately so a natural EOF can be rewound
+            // and replayed.
+            this.audioLoaded = true
+            // Only an in-flight preparation can transition to ready; an
+            // already-failed run must go through the explicit reprepare path.
+            if (this.audioState === 'loading') {
+                this.audioState = 'ready'
+                this.resolveLoadWait()
+                this.notify()
+            }
         }
+        this.checkPlaybackGate()
+    }
+
+    private async ensureAudioReady(): Promise<void> {
+        if (
+            this.audioState === 'ready' &&
+            this.player !== null &&
+            this.audioLoaded
+        ) {
+            return
+        }
+        if (this.audioState === 'loading' && this.prepared !== null) {
+            await this.prepare()
+            return
+        }
+        // Post-preparation failure: recreate the player rather than reusing
+        // a dead one; the cached rejected/resolved preparation is cleared.
+        this.disposePlayer()
+        this.prepared = null
+        this.audioState = 'loading'
+        this.audioLoaded = false
+        await this.prepare()
     }
 
     /**
@@ -422,6 +536,107 @@ export class RhythmReactorRun {
             interruptionMode: 'doNotMix',
         })
         this.audioSessionReady = true
+    }
+
+    private waitForPlayback(attempt: number): Promise<void> {
+        const check = (): boolean =>
+            this.player !== null &&
+            this.audioLoaded &&
+            this.player.playing &&
+            // A failed Android EOF rewind would still report the old 60 s
+            // position; requiring a rewound position proves the seek landed.
+            this.player.currentTime < RHYTHM_REACTOR_RULES.duration - 0.5
+        if (check()) {
+            return Promise.resolve()
+        }
+        return new Promise<void>((resolve, reject) => {
+            this.playbackGate = { attempt, check, resolve, reject }
+            this.playbackGateTimer = setTimeout(() => {
+                this.settlePlaybackGate(
+                    new Error(
+                        'The click track did not start. Press Start to try again.'
+                    )
+                )
+            }, PLAYBACK_CONFIRM_TIMEOUT_MS)
+            this.playbackGateInterval = setInterval(() => {
+                this.checkPlaybackGate()
+            }, 50)
+        })
+    }
+
+    private checkPlaybackGate(): void {
+        const gate = this.playbackGate
+        if (gate === null) {
+            return
+        }
+        if (!this.isStartCurrent(gate.attempt)) {
+            this.settlePlaybackGate(new Error(''))
+            return
+        }
+        if (gate.check()) {
+            this.settlePlaybackGate(null)
+        }
+    }
+
+    private settlePlaybackGate(error: Error | null): void {
+        if (this.playbackGateTimer !== null) {
+            clearTimeout(this.playbackGateTimer)
+            this.playbackGateTimer = null
+        }
+        if (this.playbackGateInterval !== null) {
+            clearInterval(this.playbackGateInterval)
+            this.playbackGateInterval = null
+        }
+        const gate = this.playbackGate
+        this.playbackGate = null
+        if (gate === null) {
+            return
+        }
+        if (error !== null) {
+            gate.reject(error)
+        } else {
+            gate.resolve()
+        }
+    }
+
+    private isStartCurrent(attempt: number): boolean {
+        return (
+            !this.disposed &&
+            this.appIsActive &&
+            attempt === this.startAttempt &&
+            !this.game.getState().isActive
+        )
+    }
+
+    private invalidatePendingStart(): void {
+        this.startAttempt += 1
+        if (this.starting || this.playbackGate !== null) {
+            this.starting = false
+            this.settlePlaybackGate(new Error(''))
+            this.stopAudio()
+            this.notify()
+        }
+    }
+
+    private disposePlayer(): void {
+        this.statusSubscription?.remove()
+        this.statusSubscription = null
+        const player = this.player
+        this.player = null
+        this.audioLoaded = false
+        if (player === null) {
+            return
+        }
+        try {
+            player.pause()
+        } catch {
+            // A released native player may already be paused/gone.
+        }
+        try {
+            player.remove()
+        } catch {
+            // Release is best-effort during teardown.
+        }
     }
 
     private catchUpToAudio(
@@ -449,7 +664,7 @@ export class RhythmReactorRun {
         this.aborting = true
         try {
             this.stopAudio()
-            this.unconfirmedPlaybackSeconds = 0
+            this.wallSeconds = 0
             this.game.reset()
             this.notice = notice
         } finally {
@@ -478,6 +693,8 @@ export class RhythmReactorRun {
     private failLoad(error: Error): void {
         this.clearLoadWait(error)
         this.audioState = 'error'
+        this.audioLoaded = false
+        this.prepared = null
         this.notify()
     }
 

@@ -457,30 +457,102 @@ describe('Rhythm Reactor pilot — readiness and controls', () => {
     expect(control(tree, 'Start game')).toBeTruthy()
     expect(submitScore).not.toHaveBeenCalled()
   })
+
+  test('re-prepares after a post-readiness audio error instead of refusing Start forever', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    expect(mockCreateAudioPlayer).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      mockAudioPlayer.error = 'decoder reset'
+      mockAudioPlayer.emit()
+    })
+    await drain()
+    expect(testText(tree, 'rr-audio-state')).toBe('Click track failed to load')
+    expect(game.getState().isActive).toBe(false)
+
+    // Clear the native failure and let a fresh player load; Start must
+    // recreate the player and prepare the track again.
+    mockAudioPlayer.error = null
+    mockAudioPlayer.isLoaded = true
+    await press(tree, 'Start game')
+    await drain()
+
+    expect(mockCreateAudioPlayer).toHaveBeenCalledTimes(2)
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('re-prepares on Play again after a post-run audio error', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+
+    act(() => {
+      ;(game as unknown as { handleTimeUp: () => void }).handleTimeUp()
+    })
+    await drain()
+    expect(game.getState().isGameOver).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      mockAudioPlayer.error = 'post-run pipeline failure'
+      mockAudioPlayer.isLoaded = false
+      mockAudioPlayer.playing = false
+      mockAudioPlayer.emit()
+    })
+    await drain()
+    expect(testText(tree, 'rr-audio-state')).toBe('Click track failed to load')
+
+    mockAudioPlayer.error = null
+    mockAudioPlayer.isLoaded = true
+    await press(tree, 'Play again')
+    await drain()
+
+    expect(mockCreateAudioPlayer).toHaveBeenCalledTimes(2)
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('Rhythm Reactor pilot — media clock', () => {
-  test('drives the model from player.currentTime only while playing', async () => {
+  test('keeps the model and wall timer idle until playback is confirmed, then follows media time', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
     fireLayouts(tree)
     await loadAudio()
     const game = createdGames[0]
 
-    // The native player has not reported playback yet: wall frames never
-    // advance the run.
+    // `play()` was accepted synchronously but the player is not actually
+    // playing yet (Android can return without starting). Neither the model
+    // nor its independent wall timer may start.
     mockAudioPlayer.play.mockImplementationOnce(() => {
       mockAudioPlayer.playing = false
     })
     await press(tree, 'Start game')
     await drain()
-    advanceFrames(10)
-    expect(game.getState().isActive).toBe(true)
+    advanceFrames(5)
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().gameStarted).toBe(false)
     expect(game.getState().elapsedSeconds).toBe(0)
-    expect(testText(tree, 'rr-status')).toBe('Count-in — get ready')
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(control(tree, 'Start game')).toBeTruthy()
 
-    // Playback starts: the first frame catches the model up to the media.
+    // Playback confirmation arrives: the model starts exactly once and the
+    // first frame catches it up to the media position.
     mockAudioPlayer.playing = true
     setAudioTime(0.52)
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getTimerStatus().isRunning).toBe(true)
     frameTime += 16
     fireFrame(frameTime)
     expect(game.getState().elapsedSeconds).toBeCloseTo(0.52, 6)
@@ -491,25 +563,49 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(game.getState().elapsedSeconds).toBeCloseTo(0.52, 6)
   })
 
-  test('aborts a run whose player never starts instead of posting a zero score', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+  test('never starts or posts when playback is never confirmed', async () => {
+    jest.useFakeTimers({
+      doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame'],
+    })
+    let tree: TestRenderer.ReactTestRenderer | undefined
+    await act(async () => {
+      tree = TestRenderer.create(
+        <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+      )
+      await Promise.resolve()
+    })
+    if (!tree) {
+      throw new Error('TestRenderer.create returned nothing')
+    }
+    trees.push(tree)
     fireLayouts(tree)
-    await loadAudio()
+    await act(async () => {
+      mockAudioPlayer.finishLoading()
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve()
+      }
+    })
     const game = createdGames[0]
     mockAudioPlayer.play.mockImplementationOnce(() => {
       mockAudioPlayer.playing = false
     })
 
     await press(tree, 'Start game')
-    await drain()
-    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(false)
 
-    // 1.5 s of delivered frames with no playback confirmation aborts to
-    // idle. The model never finishes, so nothing is posted.
-    advanceFrames(40)
+    // The bounded confirmation window expires without ever confirming
+    // playback: the model stays idle and no zero-score run is posted.
+    await act(async () => {
+      jest.advanceTimersByTime(1_600)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
     expect(game.getState().isActive).toBe(false)
     expect(game.getState().isGameOver).toBe(false)
     expect(game.getState().elapsedSeconds).toBe(0)
+    expect(game.getTimerStatus().isRunning).toBe(false)
     expect(testText(tree, 'rr-play-error')).toBe(
       'The click track did not start. Press Start to try again.'
     )
@@ -540,6 +636,85 @@ describe('Rhythm Reactor pilot — media clock', () => {
       'Playback failed. Press Start to try again.'
     )
     expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('aborts a confirmed run when cumulative playback continuity is lost', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+
+    // First interruption: 250 ms of wall frames with the media clock frozen.
+    setAudioTime(0)
+    frameTime += 16
+    fireFrame(frameTime)
+    mockAudioPlayer.playing = false
+    advanceFrames(5)
+    expect(game.getState().isActive).toBe(true)
+
+    // Playback resumes; the lost 250 ms remains missing from media time.
+    mockAudioPlayer.playing = true
+    frameTime += 16
+    fireFrame(frameTime)
+
+    // A second 250 ms interruption pushes the cumulative media/wall gap past
+    // the tolerance; a scored wall-clock finish must not follow.
+    mockAudioPlayer.playing = false
+    advanceFrames(6)
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'Playback was interrupted. Press Start to try again.'
+    )
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('replays a naturally ended player whose Android getter reports unloaded', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+
+    act(() => {
+      ;(game as unknown as { handleTimeUp: () => void }).handleTimeUp()
+    })
+    await drain()
+    expect(game.getState().isGameOver).toBe(true)
+
+    // Native-style EOF: the status reports ended audio as loaded while the
+    // player getter excludes STATE_ENDED.
+    act(() => {
+      mockAudioPlayer.isLoaded = false
+      mockAudioPlayer.playing = false
+      mockAudioPlayer.currentTime = 60
+      mockAudioPlayer.emit({
+        isLoaded: true,
+        playing: false,
+        currentTime: 60,
+        didJustFinish: true,
+      })
+    })
+    await drain()
+    expect(mockAudioPlayer.isLoaded).toBe(false)
+
+    await press(tree, 'Play again')
+    await drain()
+
+    // The replay rewound, confirmed playback and started the next run.
+    expect(mockAudioPlayer.seekTo).toHaveBeenLastCalledWith(0)
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(2)
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
   })
 
   test('catches up a 200 ms hitch in one update because the game accepts the full duration', async () => {
@@ -754,6 +929,116 @@ describe('Rhythm Reactor pilot — background policy', () => {
     expect(game.getState().elapsedSeconds).toBeCloseTo(0.5, 6)
   })
 
+  test('backgrounding cancels a Start awaiting playback confirmation', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    mockAudioPlayer.play.mockImplementationOnce(() => {
+      mockAudioPlayer.playing = false
+    })
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+
+    emitAppState('background')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+
+    // A late native playback confirmation after backgrounding must not
+    // start the idle model, and foregrounding does not resume it.
+    act(() => {
+      mockAudioPlayer.playing = true
+      mockAudioPlayer.currentTime = 0
+      mockAudioPlayer.emit()
+    })
+    emitAppState('active')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+  })
+
+  test('backgrounding cancels a Start awaiting audio-session setup', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    let releaseSession: (() => void) | undefined
+    mockSetAudioModeAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          releaseSession = resolve
+        })
+    )
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    emitAppState('background')
+    act(() => {
+      releaseSession?.()
+    })
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+
+    // Foregrounding never auto-starts; a fresh Start is required and works.
+    emitAppState('active')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('backgrounding cancels a Start awaiting seekTo', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    const game = createdGames[0]
+    let releaseSeek: (() => void) | undefined
+    mockAudioPlayer.seekTo.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          releaseSeek = () => {
+            mockAudioPlayer.currentTime = 0
+            resolve()
+          }
+        })
+    )
+
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    emitAppState('background')
+    act(() => {
+      releaseSeek?.()
+    })
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+
+    emitAppState('active')
+    await drain()
+    expect(game.getState().isActive).toBe(false)
+    await press(tree, 'Start game')
+    await drain()
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+  })
+
   test('an idle or finished run is untouched by backgrounding', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
     fireLayouts(tree)
@@ -800,20 +1085,46 @@ describe('Rhythm Reactor pilot — finish, replay and rewards', () => {
       mockAudioPlayer.finishLoading()
     })
     await act(async () => {
-      await Promise.resolve()
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve()
+      }
     })
     const game = createdGames[0]
 
     await press(tree, 'Start game')
     await act(async () => {
-      await Promise.resolve()
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve()
+      }
     })
+    expect(game.getState().isActive).toBe(true)
+
+    // Tap the first note at its 2 s media position.
     setAudioTime(RHYTHM_REACTOR_RULES.firstHitTimeSeconds)
     await press(tree, 'Tap lane 1')
     expect(game.getState().perfectHits).toBe(1)
 
+    // Drive media and the independent wall timer together for the full run:
+    // 600 × 100 ms frames, with the audio position following wall time.
+    for (let step = 1; step <= 600; step += 1) {
+      mockAudioPlayer.currentTime = Math.min(
+        RHYTHM_REACTOR_RULES.duration,
+        2 + step / 10
+      )
+      await act(async () => {
+        const entry = rafQueue.shift()
+        if (entry) {
+          frameTime += 100
+          entry.cb(frameTime)
+        }
+        jest.advanceTimersByTime(100)
+        await Promise.resolve()
+      })
+      if (game.getState().isGameOver) {
+        break
+      }
+    }
     await act(async () => {
-      jest.advanceTimersByTime(60_000)
       for (let i = 0; i < 10; i += 1) {
         await Promise.resolve()
       }
@@ -833,7 +1144,9 @@ describe('Rhythm Reactor pilot — finish, replay and rewards', () => {
 
     await press(tree, 'Play again')
     await act(async () => {
-      await Promise.resolve()
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve()
+      }
     })
     expect(game.getState().isActive).toBe(true)
     expect(game.getState().isGameOver).toBe(false)
