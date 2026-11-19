@@ -42,6 +42,8 @@ import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
 import type { TetrisState } from '@cetus/games/tetris/types'
 import { BejeweledGame } from '@cetus/games/bejeweled/game'
 import type { BejeweledState } from '@cetus/games/bejeweled/types'
+import { BubbleShooterGame } from '@cetus/games/bubble-shooter/BubbleShooterGame'
+import type { BubbleShooterState } from '@cetus/games/bubble-shooter/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import type {
     ChromaticTideState,
@@ -97,6 +99,7 @@ import {
 import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
 import { BejeweledBoard } from './boards/BejeweledBoard'
+import { BubbleShooterBoard } from './boards/BubbleShooterBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { CircuitHackerBoard } from './boards/CircuitHackerBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
@@ -623,6 +626,63 @@ const bejeweledPort: NativeGamePort = {
     view: BejeweledBoard,
 }
 
+const selectBubbleShooterView = (
+    state: BaseGameState,
+    game: BaseGame
+): NativeGameProjection => {
+    const {
+        aimAngle,
+        currentBubble,
+        nextBubble,
+        projectile,
+        shotsFired,
+        bubblesRemaining,
+        isActive,
+        isPaused,
+        isGameOver,
+    } = state as BubbleShooterState
+    return {
+        aimAngle,
+        currentColor: currentBubble?.color ?? null,
+        nextColor: nextBubble?.color ?? null,
+        projectile: projectile !== null,
+        shotsFired,
+        bubblesRemaining,
+        phase: isGameOver
+            ? 'finished'
+            : !isActive
+              ? 'idle'
+              : isPaused
+                ? 'paused'
+                : 'running',
+        canShoot:
+            isActive &&
+            !isPaused &&
+            !isGameOver &&
+            projectile === null &&
+            currentBubble !== null &&
+            nextBubble !== null,
+        // The model's countdown duration is Number.MAX_SAFE_INTEGER, so the
+        // shared chrome must show the elapsed clock instead of that value.
+        clock: Math.floor(game.getTimerStatus().elapsedTime || 0),
+    }
+}
+
+const bubbleShooterPort: NativeGamePort = {
+    createGame: deps =>
+        new BubbleShooterGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    // HUD primitives only; the board copies its own scene.
+    project: selectBubbleShooterView,
+    createProjector: game =>
+        createStableProjector((state: BaseGameState) =>
+            selectBubbleShooterView(state, game)
+        ),
+    view: BubbleShooterBoard,
+}
+
 const chromaticTidePort: NativeGamePort = {
     createGame: deps =>
         new ChromaticTideGame({
@@ -1021,7 +1081,7 @@ const iceSlideHandlePort: NativeHandlePort = {
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Twenty-one playable, two
+ * Play button and the play route all consult. Twenty-two playable, one
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -1043,6 +1103,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
     [GameID.TETRIS]: { port: tetrisPort },
     [GameID.BEJEWELED]: { port: bejeweledPort },
+    [GameID.BUBBLE_SHOOTER]: { port: bubbleShooterPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
     [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
     [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },

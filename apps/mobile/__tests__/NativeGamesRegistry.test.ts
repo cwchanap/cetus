@@ -24,6 +24,8 @@ import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
 import type { TetrisState } from '@cetus/games/tetris/types'
 import { BejeweledGame } from '@cetus/games/bejeweled/game'
 import type { BejeweledState } from '@cetus/games/bejeweled/types'
+import { BubbleShooterGame } from '@cetus/games/bubble-shooter/BubbleShooterGame'
+import type { BubbleShooterState } from '@cetus/games/bubble-shooter/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
@@ -83,6 +85,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.ASTEROID_DRIFT, AsteroidDriftGame],
     [GameID.TETRIS, TetrisGame],
     [GameID.BEJEWELED, BejeweledGame],
+    [GameID.BUBBLE_SHOOTER, BubbleShooterGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -90,12 +93,13 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty-one games
+// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty-two games
 // are native-destined. The list is duplicated here on purpose — the test
 // must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.ASTEROID_DRIFT,
     GameID.BEJEWELED,
+    GameID.BUBBLE_SHOOTER,
     GameID.CIRCUIT_HACKER,
     GameID.CHROMATIC_TIDE,
     GameID.EVADER,
@@ -120,7 +124,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the twenty-one registry game ids', () => {
+    test('contains exactly the twenty-two registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -129,16 +133,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 21 playable, 2 disabled of 23', () => {
+    test('registry and catalog counts line up: 22 playable, 1 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(21)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(22)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(2)
+        expect(disabled).toHaveLength(1)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -154,9 +158,9 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The two unported registry games stay disabled.
-        expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(false)
+        // The last unported registry game stays disabled.
         expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(false)
+        expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(true)
         expect(isNativePlayable(GameID.BEJEWELED)).toBe(true)
         expect(isNativePlayable(GameID.TETRIS)).toBe(true)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(true)
@@ -586,6 +590,60 @@ describe('NATIVE_GAMES registry', () => {
         expect(animating.isAnimating).toBe(true)
         expect(animating.canAct).toBe(false)
         expect(animating).not.toBe(idle)
+        game.destroy()
+    })
+
+    test('the Bubble Shooter port ships a board view and HUD primitives off the live run', () => {
+        const port = getNativeGameEntry(GameID.BUBBLE_SHOOTER)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as BubbleShooterGame
+        expect(port.project(game.getState(), game)).toEqual({
+            aimAngle: -Math.PI / 2,
+            currentColor: null,
+            nextColor: null,
+            projectile: false,
+            shotsFired: 0,
+            bubblesRemaining: 0,
+            phase: 'idle',
+            canShoot: false,
+            clock: 0,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            currentColor: number | null
+            nextColor: number | null
+            phase: string
+            canShoot: boolean
+            clock: number
+        }
+        expect(running.phase).toBe('running')
+        expect(running.canShoot).toBe(true)
+        // The queue holds the generated palette colors as primitives.
+        expect(typeof running.currentColor).toBe('number')
+        expect(typeof running.nextColor).toBe('number')
+        expect(running.clock).toBe(game.getTimerStatus().elapsedTime)
+
+        // Copies, not references: a live projectile and counter change
+        // surface through the next projection and close the input gate.
+        const live = (game as unknown as { state: BubbleShooterState }).state
+        live.shotsFired = 3
+        live.projectile = {
+            x: 300,
+            y: 400,
+            vx: 0,
+            vy: -720,
+            color: 0xff4444,
+        }
+        expect(port.project(game.getState(), game)).toMatchObject({
+            shotsFired: 3,
+            projectile: true,
+            canShoot: false,
+        })
         game.destroy()
     })
 

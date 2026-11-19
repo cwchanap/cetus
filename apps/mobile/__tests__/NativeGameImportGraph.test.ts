@@ -444,6 +444,14 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         /packages\/games\/src\/bejeweled\/types\.ts$/,
     ],
     [
+        '@cetus/games/bubble-shooter/BubbleShooterGame',
+        /packages\/games\/src\/bubble-shooter\/BubbleShooterGame\.ts$/,
+    ],
+    [
+        '@cetus/games/bubble-shooter/types',
+        /packages\/games\/src\/bubble-shooter\/types\.ts$/,
+    ],
+    [
         '@cetus/games/mine-grid/types',
         /packages\/games\/src\/mine-grid\/types\.ts$/,
     ],
