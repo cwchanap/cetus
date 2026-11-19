@@ -221,6 +221,55 @@ const render = async (element: React.ReactElement) => {
   return tree
 }
 
+const renderWithFakeTimers = async (element: React.ReactElement) => {
+  jest.useFakeTimers({
+    doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame'],
+  })
+  let tree: TestRenderer.ReactTestRenderer | undefined
+  await act(async () => {
+    tree = TestRenderer.create(element)
+    for (let i = 0; i < 6; i += 1) {
+      await Promise.resolve()
+    }
+  })
+  if (!tree) {
+    throw new Error('TestRenderer.create returned nothing')
+  }
+  trees.push(tree)
+  return tree
+}
+
+const loadAudioWithFakeTimers = async () => {
+  await act(async () => {
+    mockAudioPlayer.finishLoading()
+    for (let i = 0; i < 8; i += 1) {
+      await Promise.resolve()
+    }
+  })
+}
+
+const startWithFakeTimers = async (tree: TestRenderer.ReactTestRenderer) => {
+  await press(tree, 'Start game')
+  await act(async () => {
+    for (let i = 0; i < 8; i += 1) {
+      await Promise.resolve()
+    }
+  })
+}
+
+const runFakeFrame = async (stepMs: number) => {
+  await act(async () => {
+    const entry = rafQueue.shift()
+    if (!entry) {
+      throw new Error('no frame scheduled')
+    }
+    frameTime += stepMs
+    entry.cb(frameTime)
+    jest.advanceTimersByTime(stepMs)
+    await Promise.resolve()
+  })
+}
+
 const unmount = async (tree: TestRenderer.ReactTestRenderer) => {
   const index = trees.indexOf(tree)
   if (index >= 0) {
@@ -639,31 +688,77 @@ describe('Rhythm Reactor pilot — media clock', () => {
   })
 
   test('aborts a confirmed run when cumulative playback continuity is lost', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
     fireLayouts(tree)
-    await loadAudio()
+    await loadAudioWithFakeTimers()
     const game = createdGames[0]
-    await press(tree, 'Start game')
-    await drain()
+    await startWithFakeTimers(tree)
     expect(game.getState().isActive).toBe(true)
 
-    // First interruption: 250 ms of wall frames with the media clock frozen.
-    setAudioTime(0)
-    frameTime += 16
-    fireFrame(frameTime)
+    // Ten healthy 100 ms frames: media and actual elapsed time move together.
+    for (let step = 1; step <= 10; step += 1) {
+      mockAudioPlayer.currentTime = step / 10
+      await runFakeFrame(100)
+    }
+    expect(game.getState().elapsedSeconds).toBeCloseTo(1, 5)
+
+    // First interruption: 300 ms of real elapsed time with media frozen.
     mockAudioPlayer.playing = false
-    advanceFrames(5)
+    for (let step = 0; step < 3; step += 1) {
+      await runFakeFrame(100)
+    }
     expect(game.getState().isActive).toBe(true)
 
-    // Playback resumes; the lost 250 ms remains missing from media time.
+    // Playback resumes; the lost 300 ms remains missing from media time.
     mockAudioPlayer.playing = true
-    frameTime += 16
-    fireFrame(frameTime)
+    await runFakeFrame(100)
 
-    // A second 250 ms interruption pushes the cumulative media/wall gap past
-    // the tolerance; a scored wall-clock finish must not follow.
+    // A second interruption pushes the cumulative gap past the tolerance.
     mockAudioPlayer.playing = false
-    advanceFrames(6)
+    await runFakeFrame(100)
+    if (game.getState().isActive) {
+      await runFakeFrame(100)
+    }
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'Playback was interrupted. Press Start to try again.'
+    )
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('uses uncapped elapsed time so slow 200 ms frames expose an interruption', async () => {
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
+    fireLayouts(tree)
+    await loadAudioWithFakeTimers()
+    const game = createdGames[0]
+    await startWithFakeTimers(tree)
+    expect(game.getState().isActive).toBe(true)
+
+    // Ten healthy seconds at 200 ms frames. The shared frame loop caps its
+    // delta at 0.1 s; continuity must still use the real elapsed time.
+    for (let step = 1; step <= 50; step += 1) {
+      mockAudioPlayer.currentTime = step * 0.2
+      await runFakeFrame(200)
+    }
+    expect(game.getState().elapsedSeconds).toBeCloseTo(10, 5)
+    expect(game.getTimerStatus().isRunning).toBe(true)
+
+    // A four-second media interruption while frames keep arriving at
+    // 200 ms. A capped frame-delta counter would still show media ahead.
+    for (let step = 0; step < 20; step += 1) {
+      if (!game.getState().isActive) {
+        break
+      }
+      await runFakeFrame(200)
+    }
 
     expect(game.getState().isActive).toBe(false)
     expect(game.getState().isGameOver).toBe(false)
@@ -671,6 +766,47 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(testText(tree, 'rr-play-error')).toBe(
       'Playback was interrupted. Press Start to try again.'
     )
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('does not post when frame callbacks are absent at timer end', async () => {
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
+    fireLayouts(tree)
+    await loadAudioWithFakeTimers()
+    const game = createdGames[0]
+    await startWithFakeTimers(tree)
+    expect(game.getState().isActive).toBe(true)
+
+    // Media reaches the end, but no frame callback ever delivers it to the
+    // model before the independent 60 s wall timer completes.
+    mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration
+    await act(async () => {
+      jest.advanceTimersByTime(60_000)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
+
+    expect(game.getState().isActive).toBe(false)
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().elapsedSeconds).toBe(0)
+    expect(game.getTimerStatus().isRunning).toBe(false)
+    expect(testText(tree, 'rr-play-error')).toBe(
+      'Playback was interrupted. Press Start to try again.'
+    )
+    expect(submitScore).not.toHaveBeenCalled()
+
+    // A late frame after the abort cannot revive the run or post.
+    if (rafQueue.length > 0) {
+      act(() => {
+        const entry = rafQueue.shift()
+        frameTime += 16
+        entry?.cb(frameTime)
+      })
+    }
+    expect(game.getState().isActive).toBe(false)
     expect(submitScore).not.toHaveBeenCalled()
   })
 
@@ -1091,35 +1227,18 @@ describe('Rhythm Reactor pilot — finish, replay and rewards', () => {
     })
     const game = createdGames[0]
 
-    await press(tree, 'Start game')
-    await act(async () => {
-      for (let i = 0; i < 5; i += 1) {
-        await Promise.resolve()
-      }
-    })
+    await startWithFakeTimers(tree)
     expect(game.getState().isActive).toBe(true)
 
-    // Tap the first note at its 2 s media position.
-    setAudioTime(RHYTHM_REACTOR_RULES.firstHitTimeSeconds)
-    await press(tree, 'Tap lane 1')
-    expect(game.getState().perfectHits).toBe(1)
-
-    // Drive media and the independent wall timer together for the full run:
-    // 600 × 100 ms frames, with the audio position following wall time.
+    // Advance media and the independent wall timer together for the full
+    // run: 600 × 100 ms frames, tapping the first note when both clocks are
+    // at 2 s. Media is never ahead of or behind the timer by design.
     for (let step = 1; step <= 600; step += 1) {
-      mockAudioPlayer.currentTime = Math.min(
-        RHYTHM_REACTOR_RULES.duration,
-        2 + step / 10
-      )
-      await act(async () => {
-        const entry = rafQueue.shift()
-        if (entry) {
-          frameTime += 100
-          entry.cb(frameTime)
-        }
-        jest.advanceTimersByTime(100)
-        await Promise.resolve()
-      })
+      mockAudioPlayer.currentTime = step / 10
+      await runFakeFrame(100)
+      if (step === 20) {
+        await press(tree, 'Tap lane 1')
+      }
       if (game.getState().isGameOver) {
         break
       }
@@ -1130,6 +1249,7 @@ describe('Rhythm Reactor pilot — finish, replay and rewards', () => {
       }
     })
 
+    expect(game.getState().perfectHits).toBe(1)
     expect(game.getState().isGameOver).toBe(true)
     expect(submitScore).toHaveBeenCalledTimes(1)
     expect(submitScore).toHaveBeenCalledWith(

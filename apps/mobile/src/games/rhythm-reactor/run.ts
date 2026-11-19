@@ -1,4 +1,5 @@
 import { AppState } from 'react-native'
+import type { GameEvent } from '@cetus/games'
 import type { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
 import {
     RHYTHM_REACTOR_RULES,
@@ -123,7 +124,9 @@ export class RhythmReactorRun {
     private aborting = false
     private audioLoaded = false
     private audioSessionReady = false
-    private wallSeconds = 0
+    private runStartedAtMs: number | null = null
+    private readonly finalNoteResolvedSeconds: number
+    private timeUpdateAttached = false
     private appIsActive =
         typeof AppState.currentState === 'string'
             ? AppState.currentState === 'active'
@@ -144,6 +147,19 @@ export class RhythmReactorRun {
     ) {
         this.game = game
         this.createPlayer = options.createPlayer ?? createExpoAudioPlayer
+        const config = (
+            game as unknown as {
+                config: {
+                    chart: ReadonlyArray<{ hitTimeSeconds: number }>
+                    missWindowSeconds: number
+                }
+            }
+        ).config
+        const finalNoteTime = config.chart.reduce(
+            (latest, note) => Math.max(latest, note.hitTimeSeconds),
+            0
+        )
+        this.finalNoteResolvedSeconds = finalNoteTime + config.missWindowSeconds
     }
 
     /** Resolves only once the track is decoded/ready; rejects on load error
@@ -287,7 +303,9 @@ export class RhythmReactorRun {
             if (!this.isStartCurrent(attempt)) {
                 return
             }
-            this.wallSeconds = 0
+            // Align with BaseGame's own GameTimer.start(): both measure the
+            // same uncapped wall clock from this instant.
+            this.runStartedAtMs = Date.now()
             this.game.start()
         } catch (error) {
             // A background/disposal invalidation is not a failure to show:
@@ -311,19 +329,20 @@ export class RhythmReactorRun {
     /** Manual Reset: stop/rewind the track and clear the run locally. */
     reset(): void {
         this.stopAudio()
-        this.wallSeconds = 0
+        this.runStartedAtMs = null
         this.playError = null
         this.notice = null
         this.game.reset()
         this.notify()
     }
 
-    /** One shared-frame-loop step. `deltaSeconds` only measures the wall/
-     *  media continuity gap; chart time always comes from player.currentTime. */
-    advance(deltaSeconds: number): void {
+    /** One shared-frame-loop step. Chart time always comes from
+     *  player.currentTime; continuity uses the uncapped wall clock the
+     *  independent BaseGame timer also uses. */
+    advance(): void {
         const state = this.game.getState()
         if (!state.isActive || state.isPaused || state.isGameOver) {
-            this.wallSeconds = 0
+            this.runStartedAtMs = null
             return
         }
         const player = this.player
@@ -333,14 +352,21 @@ export class RhythmReactorRun {
             this.abortActiveRun(null)
             return
         }
-        this.wallSeconds += Math.max(0, deltaSeconds)
+        const elapsedWallSeconds =
+            this.runStartedAtMs === null
+                ? 0
+                : Math.max(0, (Date.now() - this.runStartedAtMs) / 1000)
         const atMediaEnd =
             player.currentTime >= RHYTHM_REACTOR_RULES.duration - 0.05
-        const mediaGap = this.wallSeconds - player.currentTime
+        const finalNotePassed =
+            player.currentTime + 0.05 >= this.finalNoteResolvedSeconds
+        const mediaGap = elapsedWallSeconds - player.currentTime
         if (!player.playing) {
-            // A finished 60 s track stops reporting playback just before the
-            // independent wall timer ends: never mistake that for a stall.
-            if (atMediaEnd) {
+            // A finished track / passed final note stops reporting playback
+            // before or as the wall timer ends; catch up so the completion
+            // gate sees the model's final position.
+            if (atMediaEnd || finalNotePassed) {
+                this.catchUpToAudio(player, state.elapsedSeconds)
                 return
             }
             if (mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS) {
@@ -350,7 +376,11 @@ export class RhythmReactorRun {
             }
             return
         }
-        if (!atMediaEnd && mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS) {
+        if (
+            !atMediaEnd &&
+            !finalNotePassed &&
+            mediaGap > MEDIA_CONTINUITY_TOLERANCE_SECONDS
+        ) {
             this.playError =
                 'Playback was interrupted. Press Start to try again.'
             this.abortActiveRun(null)
@@ -375,6 +405,7 @@ export class RhythmReactorRun {
      */
     attachAppState(): () => void {
         if (this.appStateSubscription === null) {
+            this.attachTimeUpdates()
             this.appStateSubscription = AppState.addEventListener(
                 'change',
                 next => {
@@ -392,7 +423,10 @@ export class RhythmReactorRun {
                 }
             )
         }
-        return () => this.detachAppState()
+        return () => {
+            this.detachAppState()
+            this.detachTimeUpdates()
+        }
     }
 
     dispose(): void {
@@ -404,9 +438,55 @@ export class RhythmReactorRun {
         this.starting = false
         this.settlePlaybackGate(new Error(''))
         this.detachAppState()
+        this.detachTimeUpdates()
         this.clearLoadWait()
         this.disposePlayer()
         this.wakeHandlers.clear()
+    }
+
+    /**
+     * BaseGame's independent timer tick is the last boundary before its
+     * `handleTimeUp()` posts a score. Reject a completion whose media or
+     * model never reached the final chart note, even when no animation frame
+     * arrived near the deadline.
+     */
+    private readonly handleTimeUpdate = (event: GameEvent): void => {
+        const time = event.data?.time
+        if (typeof time !== 'number' || time > 0) {
+            return
+        }
+        const state = this.game.getState()
+        if (!state.isActive || state.isGameOver) {
+            return
+        }
+        const player = this.player
+        const mediaReachedFinalNote =
+            player !== null &&
+            this.audioLoaded &&
+            player.currentTime + 0.05 >= this.finalNoteResolvedSeconds
+        const modelReachedFinalNote =
+            state.elapsedSeconds + 0.05 >= this.finalNoteResolvedSeconds
+        if (!mediaReachedFinalNote || !modelReachedFinalNote) {
+            this.playError =
+                'Playback was interrupted. Press Start to try again.'
+            this.abortActiveRun(null)
+        }
+    }
+
+    private attachTimeUpdates(): void {
+        if (this.timeUpdateAttached) {
+            return
+        }
+        this.timeUpdateAttached = true
+        this.game.on('time-update', this.handleTimeUpdate)
+    }
+
+    private detachTimeUpdates(): void {
+        if (!this.timeUpdateAttached) {
+            return
+        }
+        this.timeUpdateAttached = false
+        this.game.off('time-update', this.handleTimeUpdate)
     }
 
     private async prepareInternal(): Promise<void> {
@@ -664,7 +744,7 @@ export class RhythmReactorRun {
         this.aborting = true
         try {
             this.stopAudio()
-            this.wallSeconds = 0
+            this.runStartedAtMs = null
             this.game.reset()
             this.notice = notice
         } finally {

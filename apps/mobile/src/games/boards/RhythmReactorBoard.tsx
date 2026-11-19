@@ -128,7 +128,7 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
   useFrameLoop(
     {
       isRunning: () => run.isLoopRunning(),
-      step: deltaSeconds => run.advance(deltaSeconds),
+      step: () => run.advance(),
       subscribe: (wake, resetTimestamp) => run.subscribe(wake, resetTimestamp),
       onFrame: sync,
       lifecycleKey: () => run.lifecycleKey(),
