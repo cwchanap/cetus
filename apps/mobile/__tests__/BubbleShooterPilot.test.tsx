@@ -275,10 +275,22 @@ const dragTo = (
   })
 }
 
-const endDrag = (tree: TestRenderer.ReactTestRenderer, success = true) => {
+/** Release at a logical board point; the board maps it through the same
+ *  letterbox as the drag, so out-of-board releases can be exercised too. */
+const endDrag = (
+  tree: TestRenderer.ReactTestRenderer,
+  logicalX: number,
+  logicalY: number,
+  success = true
+) => {
   act(() => {
     panHandlers(tree).onFinalize(
-      { translationX: 0, translationY: -100 },
+      {
+        x: screenX(logicalX),
+        y: screenY(logicalY),
+        translationX: 0,
+        translationY: -100,
+      },
       success
     )
   })
@@ -404,7 +416,7 @@ describe('Bubble Shooter pilot — board', () => {
     beginDragAt(tree, screenX(300), 10)
     dragTo(tree, 300, 300)
     expect(game.getState().aimAngle).toBe(aimed)
-    endDrag(tree, false)
+    endDrag(tree, 300, 300, false)
 
     // Drag nearly horizontal to the right: the model clamps to -0.1π.
     beginDragAt(tree, screenX(300), screenY(700))
@@ -414,7 +426,7 @@ describe('Bubble Shooter pilot — board', () => {
     // Drag far left: the model clamps to -0.9π.
     dragTo(tree, 40, 660)
     expect(game.getState().aimAngle).toBeCloseTo(-Math.PI * 0.9, 10)
-    endDrag(tree, false)
+    endDrag(tree, 40, 660, false)
 
     frameTime += 16
     fireFrame(frameTime)
@@ -427,7 +439,7 @@ describe('Bubble Shooter pilot — board', () => {
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
     expect(game.getState().aimAngle).toBeCloseTo(-Math.PI / 2, 10)
-    endDrag(tree, false)
+    endDrag(tree, 300, 300, false)
     frameTime += 16
     fireFrame(frameTime)
     expect(testText(tree, 'bubble-status')).toBe('Aim straight up')
@@ -450,25 +462,25 @@ describe('Bubble Shooter pilot — board', () => {
     // Begin outside the logical board: neither aim nor release acts.
     beginDragAt(tree, screenX(300), 10)
     dragTo(tree, 300, 300)
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     expect(game.getState().shotsFired).toBe(0)
     expect(game.getState().projectile).toBeNull()
 
     // A cancelled pan commits nothing, even after a full aim drag.
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
-    endDrag(tree, false)
+    endDrag(tree, 300, 300, false)
     expect(game.getState().shotsFired).toBe(0)
     expect(game.getState().projectile).toBeNull()
 
     // One valid drag-release fires exactly one projectile.
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     expect(game.getState().shotsFired).toBe(1)
     expect(game.getState().projectile).not.toBeNull()
     // A duplicate final callback of the same gesture must not shoot twice.
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     expect(game.getState().shotsFired).toBe(1)
 
     frameTime += 16
@@ -480,6 +492,55 @@ describe('Bubble Shooter pilot — board', () => {
     expect(control(tree, 'Shoot').props.disabled).toBe(true)
   })
 
+  test('an in-board start released outside the board never fires the previous aim', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.BUBBLE_SHOOTER} />)
+    await startRun(tree)
+    const game = createdGames[0]
+    setState(game, {
+      grid: emptyGrid(),
+      currentBubble: { ...CURRENT_BUBBLE, color: RED },
+      nextBubble: { color: GREEN },
+    })
+    frameTime += 16
+    fireFrame(frameTime)
+
+    // The pan begins and aims on the board, then leaves through the top
+    // letterbox. Recognition can still succeed there; the release is not on
+    // the board, so it must not fire the last aim.
+    beginDragAt(tree, screenX(300), screenY(700))
+    dragTo(tree, 300, 300)
+    endDrag(tree, 300, -1)
+    expect(game.getState().shotsFired).toBe(0)
+    expect(game.getState().projectile).toBeNull()
+
+    // Releasing beyond the right edge of the view is likewise no shot.
+    beginDragAt(tree, screenX(300), screenY(700))
+    dragTo(tree, 300, 300)
+    endDrag(tree, 620, 300)
+    expect(game.getState().shotsFired).toBe(0)
+    expect(game.getState().projectile).toBeNull()
+
+    // A finalize event without usable coordinates cannot prove the finger
+    // ended on the board, so it is not a shot either.
+    beginDragAt(tree, screenX(300), screenY(700))
+    dragTo(tree, 300, 300)
+    act(() => {
+      panHandlers(tree).onFinalize(
+        { translationX: 0, translationY: -100 },
+        true
+      )
+    })
+    expect(game.getState().shotsFired).toBe(0)
+    expect(game.getState().projectile).toBeNull()
+
+    // An actual on-board release still fires the aimed shot.
+    beginDragAt(tree, screenX(300), screenY(700))
+    dragTo(tree, 300, 300)
+    endDrag(tree, 300, 300)
+    expect(game.getState().shotsFired).toBe(1)
+    expect(game.getState().projectile).not.toBeNull()
+  })
+
   test('a stale gesture from a reset run never fires into the replacement run', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.BUBBLE_SHOOTER} />)
     await startRun(tree)
@@ -489,7 +550,7 @@ describe('Bubble Shooter pilot — board', () => {
     dragTo(tree, 300, 300)
     await press(tree, 'Reset game')
     const runId = game.getRunId()
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     expect(game.getRunId()).toBe(runId)
     expect(game.getState().shotsFired).toBe(0)
     expect(game.getState().projectile).toBeNull()
@@ -509,7 +570,7 @@ describe('Bubble Shooter pilot — board', () => {
 
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     const fired = game.getState().projectile
     expect(fired).not.toBeNull()
     const y0 = fired?.y ?? Number.NaN
@@ -551,7 +612,7 @@ describe('Bubble Shooter pilot — board', () => {
 
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     advance(30)
 
     const state = game.getState()
@@ -694,7 +755,7 @@ describe('Bubble Shooter pilot — run result', () => {
     })
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 300, 300)
-    endDrag(tree)
+    endDrag(tree, 300, 300)
     advance(20)
     await drain(50)
 
