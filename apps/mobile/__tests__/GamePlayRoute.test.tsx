@@ -229,7 +229,7 @@ describe('play route — id fallbacks', () => {
   })
 
   test('renders an explicit unported state for a catalog game outside the registry', async () => {
-    mockParams.gameId = 'bejeweled'
+    mockParams.gameId = 'bubble_shooter'
     const tree = await render(<GamePlayScreen />)
 
     const rendered = renderedText(tree)

@@ -40,6 +40,8 @@ import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
 import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
 import type { TetrisState } from '@cetus/games/tetris/types'
+import { BejeweledGame } from '@cetus/games/bejeweled/game'
+import type { BejeweledState } from '@cetus/games/bejeweled/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import type {
     ChromaticTideState,
@@ -94,6 +96,7 @@ import {
 } from './ice-slide/controller'
 import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
+import { BejeweledBoard } from './boards/BejeweledBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { CircuitHackerBoard } from './boards/CircuitHackerBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
@@ -570,6 +573,56 @@ const tetrisPort: NativeGamePort = {
     view: TetrisBoard,
 }
 
+const selectBejeweledView = (state: BaseGameState): NativeGameProjection => {
+    const {
+        grid,
+        selected,
+        movesMade,
+        combo,
+        isAnimating,
+        isActive,
+        isPaused,
+        isGameOver,
+    } = state as BejeweledState
+    return {
+        // Copied cell values: the model mutates the grid in place through
+        // every cascade step.
+        cells: grid.map(row => [...row]),
+        selected: selected ? { ...selected } : null,
+        movesMade,
+        combo,
+        isAnimating,
+        phase: isGameOver
+            ? 'finished'
+            : !isActive
+              ? 'idle'
+              : isPaused
+                ? 'paused'
+                : 'running',
+        canAct: isActive && !isPaused && !isGameOver && !isAnimating,
+    }
+}
+
+const bejeweledPort: NativeGamePort = {
+    // Unlike Tetris/Bubble Shooter, the catalog GameID is the first
+    // constructor argument (as with Quick Math); callbacks stay empty —
+    // the shared session subscribes to the model's events.
+    createGame: deps =>
+        new BejeweledGame(
+            GameID.BEJEWELED,
+            {
+                submitScore: deps.submitScore,
+                platform: deps.platform,
+            },
+            {}
+        ),
+    project: selectBejeweledView,
+    // The grid and HUD only change on state events, so clock ticks reuse
+    // the previous projection reference.
+    createProjector: () => createStableProjector(selectBejeweledView),
+    view: BejeweledBoard,
+}
+
 const chromaticTidePort: NativeGamePort = {
     createGame: deps =>
         new ChromaticTideGame({
@@ -968,7 +1021,7 @@ const iceSlideHandlePort: NativeHandlePort = {
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Twenty playable, three
+ * Play button and the play route all consult. Twenty-one playable, two
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -989,6 +1042,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
     [GameID.TETRIS]: { port: tetrisPort },
+    [GameID.BEJEWELED]: { port: bejeweledPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
     [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
     [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },
