@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { StyleSheet, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmissionResult } from '@cetus/shared/scores'
 import {
@@ -105,16 +105,20 @@ const fireLayout = (
   width = 360,
   height = 360
 ) => {
-  const layoutHost = tree.root
+  // Every measured host gets the same viewport: the outer ScrollView sizes
+  // the board and GameCanvas draws only after its own layout.
+  const layoutHosts = tree.root
     .findAll(node => typeof node.type === 'string')
-    .find(node => typeof node.props.onLayout === 'function')
-  if (!layoutHost) {
+    .filter(node => typeof node.props.onLayout === 'function')
+  if (layoutHosts.length === 0) {
     throw new Error('no onLayout host found')
   }
   act(() => {
-    layoutHost.props.onLayout({
-      nativeEvent: { layout: { x: 0, y: 0, width, height } },
-    })
+    for (const layoutHost of layoutHosts) {
+      layoutHost.props.onLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width, height } },
+      })
+    }
   })
 }
 
@@ -342,6 +346,35 @@ describe('Circuit Hacker pilot — pre-run selection and board', () => {
     )
     expect(game.getState().rotationsUsed).toBe(2)
     expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('fits the square board to available height and scrolls when space is tight', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    const scroll = tree.root.findByProps({ testID: 'circuit-scroll' })
+    const setViewport = (width: number, height: number) => {
+      act(() => {
+        scroll.props.onLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width, height } },
+        })
+      })
+    }
+    const boardSize = () =>
+      StyleSheet.flatten(
+        tree.root.findByProps({ testID: 'circuit-board' }).props.style
+      ).width as number
+
+    setViewport(390, 900)
+    expect(boardSize()).toBe(358)
+
+    // The instructions and two difficulty rows take the same viewport, so a
+    // short screen shrinks the board instead of pushing Stop out of reach.
+    setViewport(390, 500)
+    expect(boardSize()).toBe(260)
+
+    // Below the static reserve the board keeps a usable floor and the
+    // ScrollView carries the overflow (for example enlarged text).
+    setViewport(390, 300)
+    expect(boardSize()).toBe(160)
   })
 })
 

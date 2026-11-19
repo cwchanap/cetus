@@ -1,4 +1,12 @@
-import { Pressable, Text, View } from 'react-native'
+import { useState } from 'react'
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native'
 import { Button } from '@cetus/ui'
 import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
 import type {
@@ -32,6 +40,13 @@ const CELL_FILL = 'rgba(0, 17, 34, 0.5)'
 const CELL_BORDER = 'rgba(14, 165, 233, 0.15)'
 
 const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard', 'expert']
+
+const SCREEN_PADDING = 16
+const MIN_BOARD = 160
+// Static reserve under the board for the instructions, two difficulty rows
+// and the Stop control. Enlarged text can exceed it; the ScrollView is the
+// fallback then.
+const RESERVED_HEIGHT = 240
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: 'Easy',
@@ -109,6 +124,31 @@ export function CircuitHackerBoard({
   const cell = CIRCUIT_HACKER_CELL_SIZE
   const logicalWidth = scene.cols * cell
   const logicalHeight = scene.rows * cell
+  const [viewport, setViewport] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+  // The board is square, so it is fitted against both the viewport width and
+  // the height left under the instructions and difficulty controls.
+  const boardWidth =
+    viewport === null
+      ? null
+      : Math.max(
+          MIN_BOARD,
+          Math.min(
+            viewport.width - SCREEN_PADDING * 2,
+            viewport.height - RESERVED_HEIGHT
+          )
+        )
+
+  const onViewport = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout
+    setViewport(current =>
+      current !== null && current.width === width && current.height === height
+        ? current
+        : { width, height }
+    )
+  }
 
   const offWires: string[] = []
   const onWires: string[] = []
@@ -135,7 +175,12 @@ export function CircuitHackerBoard({
       : `Circuit Hacker board: ${scene.poweredCores} of ${scene.cores} cores powered, ${scene.rotationsUsed} rotations used`
 
   return (
-    <View className="flex-1 gap-3 px-4 pb-4">
+    <ScrollView
+      testID="circuit-scroll"
+      className="flex-1"
+      contentContainerStyle={styles.content}
+      onLayout={onViewport}
+    >
       <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <Text
           testID="circuit-core-count"
@@ -159,8 +204,11 @@ export function CircuitHackerBoard({
 
       <View
         testID="circuit-board"
-        className="w-full"
-        style={{ aspectRatio: logicalWidth / logicalHeight }}
+        style={[
+          styles.board,
+          { aspectRatio: logicalWidth / logicalHeight },
+          boardWidth === null ? styles.boardFluid : { width: boardWidth },
+        ]}
       >
         <GameCanvas logicalWidth={logicalWidth} logicalHeight={logicalHeight}>
           <Rect
@@ -336,6 +384,21 @@ export function CircuitHackerBoard({
           Stop run
         </Button>
       ) : null}
-    </View>
+    </ScrollView>
   )
 }
+
+const styles = StyleSheet.create({
+  content: {
+    gap: 12,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingBottom: 24,
+  },
+  board: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  boardFluid: {
+    width: '100%',
+  },
+})
