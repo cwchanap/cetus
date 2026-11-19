@@ -806,7 +806,10 @@ test.describe('Bejeweled', () => {
         await canvas.press('p')
         await expect(page.locator('#pause-panel')).toBeVisible()
         const time = await page.locator('#time-remaining').innerText()
-        await page.clock.runFor(5000)
+        // fastForward jumps time and fires due timers at most once. runFor
+        // executed every paused renderer frame and took ~57s under parallel
+        // load, starving whichever spec shared the worker.
+        await page.clock.fastForward(5000)
         await expect(page.locator('#time-remaining')).toHaveText(time)
         await page
             .getByRole('button', { name: 'Measured', exact: true })
