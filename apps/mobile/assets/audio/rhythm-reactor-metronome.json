@@ -9,11 +9,13 @@
     "lastBeatTimeSeconds": 59.5,
     "timingReference": "Asset playback position zero is game elapsed zero; the first four clicks are count-in, and the first scoring note is at 2 seconds. Clicks mark the beat grid, including chart rests.",
     "codec": "AAC-LC in M4A, 48000 Hz mono",
-    "sizeBytes": 100729,
-    "integratedLoudnessLUFS": -27.2,
-    "truePeakDbTP": -5.6,
+    "sizeBytes": 113486,
+    "integratedLoudnessLUFS": -28.9,
+    "truePeakDbTP": -5.3,
     "measurement": "FFmpeg 8.1.2 ebur128=peak=true on the decoded asset",
-    "source": "Original synthesized sine-wave clicks; no third-party recordings or samples.",
-    "recipe": "python3 apps/mobile/scripts/rhythm-reactor-metronome.py",
+    "source": "ElevenLabs sound-effects model eleven_text_to_sound_v3, generated 2026-11-19 as 48 kHz PCM. The retained source is the first 100 ms of the generated output: apps/mobile/scripts/rhythm-reactor-click.wav.",
+    "sourcePrompt": "One single crisp, short electronic metronome click for a sci-fi rhythm game, clean percussive transient with a quick decay, no music, no ambience, no voice, no repeated clicks",
+    "sourceSettings": "duration_seconds=1.0, prompt_influence=0.7, output_format=pcm_48000",
+    "recipe": "python3 apps/mobile/scripts/rhythm-reactor-metronome.py (uses first 60 ms of retained source, applies fades and beat-dependent gain, then encodes AAC-LC)",
     "verify": "python3 apps/mobile/scripts/rhythm-reactor-metronome.py --check (requires Python 3, ffmpeg and ffprobe)"
 }

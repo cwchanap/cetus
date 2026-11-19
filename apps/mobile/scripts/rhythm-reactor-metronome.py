@@ -3,7 +3,8 @@
 
 Run from any directory: python3 apps/mobile/scripts/rhythm-reactor-metronome.py
 Add --check to validate the checked-in compressed asset without rewriting it.
-The clicks are synthesized from sine waves; no recordings or samples are used.
+The retained WAV is an excerpt of an ElevenLabs-generated click; this script
+arranges it on the beat grid and encodes the final mobile asset.
 """
 
 import array
@@ -18,6 +19,7 @@ import wave
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSET = ROOT / 'assets/audio/rhythm-reactor-metronome.m4a'
 MANIFEST = ASSET.with_suffix('.json')
+SOURCE = pathlib.Path(__file__).with_name('rhythm-reactor-click.wav')
 RATE = 48000
 DURATION = 60
 STEP = RATE // 2
@@ -25,14 +27,20 @@ STEP = RATE // 2
 
 def generate():
     samples = array.array('h', [0]) * (RATE * DURATION)
+    with wave.open(str(SOURCE), 'rb') as source:
+        if source.getnchannels() != 1 or source.getsampwidth() != 2 or source.getframerate() != RATE:
+            raise ValueError('Source must be 48 kHz mono 16-bit PCM')
+        click = array.array('h')
+        click.frombytes(source.readframes(int(RATE * 0.06)))
+    if sys.byteorder != 'little':
+        click.byteswap()
     for beat in range(120):
-        # Four lower count-in ticks, then a brighter first scoring beat. A
-        # 1 ms attack avoids discontinuities; each tone decays within 40 ms.
-        frequency = 1100 if beat < 4 else (1600 if beat % 4 == 0 else 1300)
-        for i in range(int(RATE * 0.04)):
-            t = i / RATE
-            envelope = min(t / 0.001, 1) * math.exp(-t / 0.008)
-            samples[beat * STEP + i] = int(32767 * 0.6 * envelope * math.sin(2 * math.pi * frequency * t))
+        # The count-in is quieter and the first scoring beat is accented.
+        gain = 0.55 if beat < 4 else (0.75 if beat % 4 == 0 else 0.65)
+        for i, value in enumerate(click):
+            attack = min(i / (RATE * 0.0005), 1)
+            release = min((len(click) - 1 - i) / (RATE * 0.01), 1)
+            samples[beat * STEP + i] = int(value * gain * attack * release)
     if sys.byteorder != 'little':
         samples.byteswap()
     with tempfile.TemporaryDirectory() as tmp:
