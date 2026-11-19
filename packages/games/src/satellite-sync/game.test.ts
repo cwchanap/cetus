@@ -401,6 +401,38 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('restoreAimState keeps a newer identical 0/×1 reset that intervenes', () => {
+        const game = new SatelliteSyncGame(makeCallbacks())
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+        expect(game.getState().combo).toBe(2)
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        // The drag's own begin unlocks target-0 and resets the combo; a
+        // second unrelated unlock leaves exactly the same 0/×1 values.
+        game.beginAim('sat-0')
+        game.beginAim('sat-1')
+        expect(game.getState().combo).toBe(0)
+        expect(game.getState().multiplier).toBe(1)
+
+        expect(game.restoreAimState(snapshot)).toBe(true)
+        const after = game.getState()
+        // Geometry still rolls back, but the newer combo reset stands.
+        expect(after.targets[0].lockedBySatId).toBe('sat-0')
+        expect(after.combo).toBe(0)
+        expect(after.multiplier).toBe(1)
+        game.cleanup()
+    })
+
     it('captureAimState rejects unknown satellites and restore is a no-op', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
