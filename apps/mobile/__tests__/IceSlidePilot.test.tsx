@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { AppState, Text, type AppStateStatus } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmissionResult } from '@cetus/shared/scores'
@@ -597,6 +597,52 @@ describe('Ice Slide pilot — Daily mode and leaderboard', () => {
     await press(emptyTree, 'Retry loading the leaderboard')
     expect(renderedText(emptyTree)).toContain('Frost Pilot')
     await unmount(emptyTree)
+  })
+
+  test('a failed leaderboard refresh keeps the stale board and shows error with retry', async () => {
+    const appStateHandlers = new Set<(state: AppStateStatus) => void>()
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        appStateHandlers.add(listener as (state: AppStateStatus) => void)
+        return {
+          remove: () =>
+            appStateHandlers.delete(
+              listener as (state: AppStateStatus) => void
+            ),
+        } as never
+      })
+    const refocus = () => {
+      act(() => {
+        for (const handler of appStateHandlers) {
+          handler('active')
+        }
+      })
+    }
+
+    const tree = await render(<NativeGameHost gameId={GameID.ICE_SLIDE} />)
+    await press(tree, 'Select mode daily')
+    expect(renderedText(tree)).toContain('Frost Pilot')
+
+    // Refetch-on-focus fails: the last good board stays, and the error with
+    // its retry must be visible next to it instead of silently replacing it.
+    getLeaderboard.mockRejectedValueOnce(new Error('boom'))
+    refocus()
+    await drain()
+
+    expect(renderedText(tree)).toContain('Frost Pilot')
+    expect(tree.root.findByProps({ testID: 'leaderboard-error' })).toBeTruthy()
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Retry loading the leaderboard',
+      })
+    ).toBeTruthy()
+
+    await press(tree, 'Retry loading the leaderboard')
+    expect(renderedText(tree)).toContain('Frost Pilot')
+    expect(
+      tree.root.findAllByProps({ testID: 'leaderboard-error' })
+    ).toHaveLength(0)
   })
 })
 
