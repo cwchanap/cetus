@@ -432,6 +432,9 @@ describe('Chromatic Tide pilot — Stage-1 save contract', () => {
   })
 
   test('a code-less failure falls back to the generic unconfirmed message', async () => {
+    // The shared ScoreManager logs the save failure; this test drives that
+    // path deliberately, so keep the expected log out of the suite output.
+    const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {})
     submitScore.mockRejectedValue(new Error('transport threw'))
     const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
 
@@ -444,6 +447,11 @@ describe('Chromatic Tide pilot — Stage-1 save contract', () => {
     expect(testText(tree, 'result-save-status')).toBe('Score not confirmed')
     expect(renderedText(tree)).not.toContain('Score saved')
     expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(errorLog).toHaveBeenCalledWith(
+      '[ScoreManager] Failed to save score:',
+      expect.any(Error)
+    )
+    errorLog.mockRestore()
   })
 })
 
