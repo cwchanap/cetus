@@ -290,6 +290,14 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
           const originSelected =
             selected !== null && selected.row === row && selected.col === col
           if (!originSelected) {
+            // A different selection may neighbour the origin: selecting the
+            // origin first would start swapping selection↔origin and the
+            // intended target click would land mid-animation and be ignored.
+            // Clicking the selected cell again deselects it (model rule), so
+            // the swipe then selects its own origin cleanly.
+            if (selected !== null) {
+              bejeweled.clickCell(selected.row, selected.col)
+            }
             bejeweled.clickCell(row, col)
           }
           bejeweled.clickCell(target.row, target.col)
