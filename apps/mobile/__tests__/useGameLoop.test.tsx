@@ -102,6 +102,9 @@ const LoopHarness = ({ game }: { game: LoopTestGame }) => {
   )
 }
 
+const mountedTrees: TestRenderer.ReactTestRenderer[] = []
+const createdTrees: TestRenderer.ReactTestRenderer[] = []
+
 const mount = (game: LoopTestGame) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
   act(() => {
@@ -110,7 +113,27 @@ const mount = (game: LoopTestGame) => {
   if (!tree) {
     throw new Error('TestRenderer.create returned nothing')
   }
+  mountedTrees.push(tree)
+  createdTrees.push(tree)
   return tree
+}
+
+const unmountMountedTrees = () => {
+  for (const tree of mountedTrees.splice(0)) {
+    act(() => {
+      tree.unmount()
+    })
+  }
+}
+
+const unmount = (tree: TestRenderer.ReactTestRenderer) => {
+  act(() => {
+    tree.unmount()
+  })
+  const index = mountedTrees.indexOf(tree)
+  if (index >= 0) {
+    mountedTrees.splice(index, 1)
+  }
 }
 
 beforeEach(() => {
@@ -135,10 +158,18 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  jest.restoreAllMocks()
+  unmountMountedTrees()
   for (const game of createdGames.splice(0)) {
     game.destroy()
   }
+  jest.restoreAllMocks()
+})
+
+afterAll(() => {
+  // Every tree must be unmounted before the environment tears down; a
+  // survivor keeps a frame loop subscribed and can schedule a real
+  // requestAnimationFrame after teardown.
+  expect(createdTrees.every(tree => tree.toJSON() === null)).toBe(true)
 })
 
 describe('useGameLoop', () => {
@@ -444,7 +475,7 @@ describe('useGameLoop', () => {
     expect(mountedScenes).toHaveLength(scenesBefore)
 
     act(() => {
-      tree.unmount()
+      unmount(tree)
     })
     expect(cancelAnimationFrame).toHaveBeenCalledTimes(1)
     expect(rafQueue).toHaveLength(0)
