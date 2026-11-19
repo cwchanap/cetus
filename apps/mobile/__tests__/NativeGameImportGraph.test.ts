@@ -440,6 +440,10 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         /packages\/games\/src\/chromatic-tide\/types\.ts$/,
     ],
     [
+        '@cetus/games/bejeweled/types',
+        /packages\/games\/src\/bejeweled\/types\.ts$/,
+    ],
+    [
         '@cetus/games/mine-grid/types',
         /packages\/games\/src\/mine-grid\/types\.ts$/,
     ],

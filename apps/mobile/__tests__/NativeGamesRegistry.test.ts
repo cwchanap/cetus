@@ -22,6 +22,8 @@ import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
 import type { TetrisState } from '@cetus/games/tetris/types'
+import { BejeweledGame } from '@cetus/games/bejeweled/game'
+import type { BejeweledState } from '@cetus/games/bejeweled/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
@@ -80,6 +82,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.PATH_NAVIGATOR, PathNavigatorGame],
     [GameID.ASTEROID_DRIFT, AsteroidDriftGame],
     [GameID.TETRIS, TetrisGame],
+    [GameID.BEJEWELED, BejeweledGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -87,11 +90,12 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty games are
-// native-destined. The list is duplicated here on purpose — the test must
-// fail if the registry drifts.
+// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty-one games
+// are native-destined. The list is duplicated here on purpose — the test
+// must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.ASTEROID_DRIFT,
+    GameID.BEJEWELED,
     GameID.CIRCUIT_HACKER,
     GameID.CHROMATIC_TIDE,
     GameID.EVADER,
@@ -116,7 +120,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the twenty registry game ids', () => {
+    test('contains exactly the twenty-one registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -125,16 +129,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 20 playable, 3 disabled of 23', () => {
+    test('registry and catalog counts line up: 21 playable, 2 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(20)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(21)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(3)
+        expect(disabled).toHaveLength(2)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -150,10 +154,10 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The three unported registry games stay disabled.
-        expect(isNativePlayable(GameID.BEJEWELED)).toBe(false)
+        // The two unported registry games stay disabled.
         expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(false)
         expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(false)
+        expect(isNativePlayable(GameID.BEJEWELED)).toBe(true)
         expect(isNativePlayable(GameID.TETRIS)).toBe(true)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(true)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
@@ -526,6 +530,62 @@ describe('NATIVE_GAMES registry', () => {
             lines: 8,
             holdUsed: true,
         })
+        game.destroy()
+    })
+
+    test('the Bejeweled projector copies the grid and reads the animation gate', () => {
+        const port = getNativeGameEntry(GameID.BEJEWELED)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as BejeweledGame
+        const idle = port.project(game.getState(), game) as {
+            cells: Array<Array<string | null>>
+            selected: { row: number; col: number } | null
+            movesMade: number
+            combo: number
+            isAnimating: boolean
+            phase: string
+            canAct: boolean
+        }
+        // The 8×8 visible board copies every gem value, idle and unselectable.
+        expect(idle.cells).toHaveLength(8)
+        expect(idle.cells.every(row => row.length === 8)).toBe(true)
+        expect(
+            idle.cells.flat().every(jewel => typeof jewel === 'string')
+        ).toBe(true)
+        expect(idle).toMatchObject({
+            selected: null,
+            movesMade: 0,
+            combo: 0,
+            isAnimating: false,
+            phase: 'idle',
+            canAct: false,
+        })
+
+        game.start()
+        expect(port.project(game.getState(), game)).toMatchObject({
+            phase: 'running',
+            canAct: true,
+        })
+
+        // Copies, not grid references: the model mutates in place through
+        // every cascade, and the animation gate must close on the fresh
+        // projection.
+        const live = (game as unknown as { state: BejeweledState }).state
+        live.selected = { row: 2, col: 3 }
+        live.isAnimating = true
+        const animating = port.project(game.getState(), game) as {
+            selected: { row: number; col: number } | null
+            isAnimating: boolean
+            canAct: boolean
+        }
+        expect(animating.selected).toEqual({ row: 2, col: 3 })
+        expect(animating.isAnimating).toBe(true)
+        expect(animating.canAct).toBe(false)
+        expect(animating).not.toBe(idle)
         game.destroy()
     })
 
