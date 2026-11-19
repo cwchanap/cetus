@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AccessibilityInfo, ScrollView, Text, View } from 'react-native'
 import { Button } from '@cetus/ui'
 import type { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
 import {
   RHYTHM_REACTOR_RULES,
+  type RhythmReactorNote,
   type RhythmReactorState,
 } from '@cetus/games/rhythm-reactor/types'
 import { Rect } from '@shopify/react-native-skia'
@@ -100,6 +101,61 @@ const audioStateLabel = (snapshot: RhythmReactorRunSnapshot): string => {
 const calibrationLabel = (calibrationMs: number): string =>
   `Calibration ${calibrationMs >= 0 ? '+' : ''}${calibrationMs} ms`
 
+/** Spoken lead time: each approaching note is announced once when it gets
+ *  this close, instead of speaking on every animation frame. */
+const CUE_LEAD_SECONDS = 1.5
+const UPCOMING_LIMIT = 4
+
+const approachNotes = (state: RhythmReactorState) =>
+  state.pendingNotes
+    .filter(
+      note =>
+        note.hitTimeSeconds - state.elapsedSeconds <= APPROACH_SECONDS &&
+        state.elapsedSeconds - note.hitTimeSeconds <= MISS_WINDOW_SECONDS
+    )
+    .sort((a, b) => a.hitTimeSeconds - b.hitTimeSeconds)
+
+const remainingOf = (note: RhythmReactorNote, elapsedSeconds: number): number =>
+  Math.max(0, note.hitTimeSeconds - elapsedSeconds)
+
+const spokenSeconds = (seconds: number): string =>
+  `${seconds.toFixed(1)} seconds`
+
+/**
+ * The falling notes and lane colours are Skia-only: the same approach window
+ * is spelled out for screen readers so a lane and its time are available
+ * without sight. This text is read on focus; the spoken cue below is the
+ * anticipation channel.
+ */
+const upcomingLabel = (state: RhythmReactorState): string => {
+  if (state.isGameOver) {
+    return 'Run complete.'
+  }
+  if (!state.isActive) {
+    return 'Upcoming notes appear when the run starts.'
+  }
+  const notes = approachNotes(state)
+  if (notes.length === 0) {
+    return 'No notes approaching.'
+  }
+  return `Upcoming: ${notes
+    .slice(0, UPCOMING_LIMIT)
+    .map(
+      note =>
+        `lane ${note.laneIndex + 1} in ${spokenSeconds(
+          remainingOf(note, state.elapsedSeconds)
+        )}`
+    )
+    .join(', ')}.`
+}
+
+/** Notes inside the spoken cue lead, earliest first. */
+const cueNotes = (state: RhythmReactorState) =>
+  approachNotes(state).filter(note => {
+    const remaining = note.hitTimeSeconds - state.elapsedSeconds
+    return remaining >= 0 && remaining <= CUE_LEAD_SECONDS
+  })
+
 /**
  * Rhythm Reactor native board (HPA-535 Stage 5). Skia draws the four lanes
  * and falling notes from the MODEL's `elapsedSeconds`; the runtime companion
@@ -143,6 +199,41 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
   const status = phaseOf(state)
   const feedback = feedbackOf(state)
   const calibration = calibrationLabel(audio.calibrationMs)
+  const upcoming = upcomingLabel(state)
+  const approached = approachNotes(state)
+
+  // One utterance per approaching note: the announcer must never speak on
+  // every animation frame. The ledger is cleared when the run stops so a
+  // Replay re-announces its own chart.
+  const announcedNotesRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!running) {
+      announcedNotesRef.current.clear()
+      return
+    }
+    const note = cueNotes(state).find(
+      candidate => !announcedNotesRef.current.has(candidate.id)
+    )
+    if (!note) {
+      return
+    }
+    announcedNotesRef.current.add(note.id)
+    void AccessibilityInfo.announceForAccessibility(
+      `Lane ${note.laneIndex + 1}, in ${spokenSeconds(
+        remainingOf(note, state.elapsedSeconds)
+      )}.`
+    )
+  }, [running, state])
+
+  const laneCue = (laneIndex: number): string => {
+    if (!running) {
+      return 'Lane available when the run starts'
+    }
+    const note = approached.find(candidate => candidate.laneIndex === laneIndex)
+    return note
+      ? `Note in ${spokenSeconds(remainingOf(note, state.elapsedSeconds))}`
+      : 'No approaching note'
+  }
 
   const summary = [
     'Rhythm Reactor board',
@@ -155,12 +246,6 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
       audio.calibrationMs
     } milliseconds`,
   ].join('. ')
-
-  const visibleNotes = state.pendingNotes.filter(
-    note =>
-      note.hitTimeSeconds - state.elapsedSeconds <= APPROACH_SECONDS &&
-      state.elapsedSeconds - note.hitTimeSeconds <= MISS_WINDOW_SECONDS
-  )
 
   const pressLane = (laneIndex: number): void => {
     if (!rhythmGame.getState().isActive) {
@@ -277,7 +362,7 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
             color={HIT_LINE}
             opacity={0.9}
           />
-          {visibleNotes.map(note => {
+          {approached.map(note => {
             const progress =
               1 -
               (note.hitTimeSeconds - state.elapsedSeconds) / APPROACH_SECONDS
@@ -329,6 +414,13 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
       >
         {feedback}
       </Text>
+      <Text
+        testID="rr-upcoming"
+        accessibilityLabel={upcoming}
+        className="font-sans text-sm text-cetus-ink-muted"
+      >
+        {upcoming}
+      </Text>
 
       {audio.playError ? (
         <Text
@@ -355,6 +447,8 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
             variant="primary"
             size="sm"
             accessibilityLabel={`Tap lane ${lane + 1}`}
+            accessibilityHint="Tap when this lane's note reaches the cyan line"
+            accessibilityValue={{ text: laneCue(lane) }}
             accessibilityState={{ disabled: !running }}
             disabled={!running}
             className="min-w-[22%] flex-1"
@@ -390,8 +484,8 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
 
       <Text className="font-sans text-xs text-cetus-ink-muted">
         Tap the lane when its note crosses the cyan line. Calibration is locked
-        during a run; positive values make the chart earlier by that many
-        milliseconds.
+        during a run; positive values delay the chart by that many milliseconds
+        (the media position is shifted back).
       </Text>
     </ScrollView>
   )

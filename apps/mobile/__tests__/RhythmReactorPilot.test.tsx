@@ -1057,6 +1057,90 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(renderedText(tree)).toContain('Hits 0')
     expect(renderedText(tree)).toContain('Combo ×0')
   })
+
+  test('approaching notes expose their lanes and times to screen readers', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    await press(tree, 'Start game')
+    await drain()
+
+    setAudioTime(1)
+    frameTime += 16
+    fireFrame(frameTime)
+
+    // The Skia notes are invisible to screen readers: the same 2-second
+    // approach window is spelled out with lanes and remaining seconds.
+    expect(testText(tree, 'rr-upcoming')).toBe(
+      'Upcoming: lane 1 in 1.0 seconds, lane 2 in 2.0 seconds.'
+    )
+    expect(control(tree, 'Tap lane 1').props.accessibilityValue?.text).toBe(
+      'Note in 1.0 seconds'
+    )
+    expect(control(tree, 'Tap lane 2').props.accessibilityValue?.text).toBe(
+      'Note in 2.0 seconds'
+    )
+    expect(control(tree, 'Tap lane 3').props.accessibilityValue?.text).toBe(
+      'No approaching note'
+    )
+    expect(control(tree, 'Tap lane 4').props.accessibilityValue?.text).toBe(
+      'No approaching note'
+    )
+
+    setAudioTime(1.5)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(testText(tree, 'rr-upcoming')).toBe(
+      'Upcoming: lane 1 in 0.5 seconds, lane 2 in 1.5 seconds.'
+    )
+    expect(control(tree, 'Tap lane 1').props.accessibilityValue?.text).toBe(
+      'Note in 0.5 seconds'
+    )
+  })
+
+  test('spoken lane cues fire once per approaching note, never per frame', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    await press(tree, 'Start game')
+    await drain()
+    const announce = jest.mocked(AccessibilityInfo.announceForAccessibility)
+    announce.mockClear()
+    const cueCalls = () =>
+      announce.mock.calls
+        .map(([message]) => message)
+        .filter(message => message.includes(' in '))
+
+    // Below the whole cue lead no note is close enough to speak.
+    for (let seconds = 0; seconds < 0.45; seconds += 0.05) {
+      setAudioTime(seconds)
+      frameTime += 50
+      fireFrame(frameTime)
+    }
+    expect(cueCalls()).toHaveLength(0)
+
+    // Each note is cued exactly once as it enters the 1.5 s lead.
+    for (let seconds = 0.5; seconds <= 1.6; seconds += 0.05) {
+      setAudioTime(seconds)
+      frameTime += 50
+      fireFrame(frameTime)
+    }
+    expect(cueCalls()).toEqual([
+      'Lane 1, in 1.5 seconds.',
+      'Lane 2, in 1.5 seconds.',
+    ])
+
+    // Holding the same clock across many frames never repeats the cue.
+    for (let frame = 0; frame < 10; frame += 1) {
+      setAudioTime(1.6)
+      frameTime += 50
+      fireFrame(frameTime)
+    }
+    expect(cueCalls()).toEqual([
+      'Lane 1, in 1.5 seconds.',
+      'Lane 2, in 1.5 seconds.',
+    ])
+  })
 })
 
 describe('Rhythm Reactor pilot — background policy', () => {

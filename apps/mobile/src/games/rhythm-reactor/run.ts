@@ -7,9 +7,9 @@ import {
 } from '@cetus/games/rhythm-reactor/types'
 
 /**
- * Calibration is a pre-run player-time correction. Positive values move the
- * chart "earlier" by subtracting from the media position; the bound keeps a
- * mistyped value from swallowing an entire hit range.
+ * Calibration is a pre-run player-time correction. Positive values subtract
+ * from the media position, so the chart runs that much later than the audio;
+ * the bound keeps a mistyped value from swallowing an entire hit range.
  */
 export const RHYTHM_REACTOR_CALIBRATION_STEP_MS = 10
 export const RHYTHM_REACTOR_CALIBRATION_LIMIT_MS = 200
