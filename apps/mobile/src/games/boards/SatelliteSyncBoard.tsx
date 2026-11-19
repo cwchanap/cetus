@@ -99,6 +99,7 @@ export function SatelliteSyncBoard({
   const dragBeganRef = useRef(false)
   const dragSnapshotRef = useRef<SatelliteAimSnapshot | null>(null)
   const sceneLevelRef = useRef<number | null>(null)
+  const sceneIdentityRef = useRef<string | null>(null)
 
   const clearDrag = () => {
     dragCandidateRef.current = null
@@ -108,21 +109,35 @@ export function SatelliteSyncBoard({
     dragSnapshotRef.current = null
   }
 
-  const syncScene = () => {
+  /** Copy the live scene, clearing board-local aiming UI when the scene no
+   *  longer belongs to the same model/run/entity set. Returns false when it
+   *  cleared, so a caller cannot write stale lock copy afterwards. */
+  const syncScene = (): boolean => {
     const next = controller.getScene()
-    // A stop, new run or level swap invalidates any selection/attempt and
-    // any outstanding gesture from the previous scene.
-    if (
+    const identity = next === null ? null : controller.getAimIdentity()
+    const identityKey =
+      identity === null
+        ? null
+        : `${identity.modelInstanceId}:${identity.entityGeneration}`
+    // Scoped to the model/run and entity generation, not just the level: a
+    // same-level Replay and a level-clear entity swap both invalidate the
+    // previous selection and status.
+    const cleared =
       next === null ||
+      identityKey === null ||
+      (sceneIdentityRef.current !== null &&
+        identityKey !== sceneIdentityRef.current) ||
       (sceneLevelRef.current !== null &&
         next.levelIndex !== sceneLevelRef.current)
-    ) {
+    if (cleared) {
       setSelectedSatelliteId(null)
       setAimStatus(null)
       clearDrag()
     }
+    sceneIdentityRef.current = identityKey
     sceneLevelRef.current = next?.levelIndex ?? null
     setScene(next)
+    return !cleared
   }
 
   useFrameLoop(
@@ -309,7 +324,12 @@ export function SatelliteSyncBoard({
       satellite => satellite.id === selectedSatellite.id
     )
     const locked = controller.lockTarget(selectedSatellite.id, target.id)
-    syncScene()
+    const sameScene = syncScene()
+    if (!sameScene) {
+      // The lock completed the level (or ended the run): the scene it
+      // described was replaced, so its success/failure copy would be stale.
+      return
+    }
     const message = locked
       ? `Target ${index + 1} locked by satellite ${satelliteIndex + 1}.`
       : `Target ${index + 1} could not be locked — blocked or out of range. Select another target or satellite.`
