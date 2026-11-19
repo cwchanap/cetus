@@ -75,7 +75,10 @@ export interface SatelliteAimIdentity {
 /** Pre-drag aim/lock state captured before `beginAim` mutates a satellite,
  *  so a cancelled drag can be restored without scoring. `modelInstanceId`
  *  and `entityGeneration` bind the snapshot to the model/run and level
- *  entity set that produced it; a stale snapshot is rejected. */
+ *  entity set that produced it; a stale snapshot is rejected.
+ *  `comboRevision` counts every combo/multiplier write so a rollback only
+ *  restores the combo when the only change since capture is the drag's own
+ *  unlock reset, not an unrelated reset that happens to yield 0/×1. */
 export interface SatelliteAimSnapshot {
     modelInstanceId: number
     entityGeneration: number
@@ -85,6 +88,7 @@ export interface SatelliteAimSnapshot {
     lockedTargetId: string | null
     combo: number
     multiplier: number
+    comboRevision: number
 }
 
 export type SatelliteSyncStatus = 'idle' | 'playing' | 'won' | 'lost'

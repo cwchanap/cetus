@@ -34,6 +34,9 @@ let nextModelInstanceId = 1
 export class SatelliteSyncGame {
     private readonly modelInstanceId = nextModelInstanceId++
     private entityGeneration = 0
+    // Monotonic counter over every combo/multiplier write, so a cancelled
+    // drag can tell its own unlock reset apart from an unrelated one.
+    private comboRevision = 0
     private callbacks: SatelliteSyncCallbacks
     private scoreManager: ScoreManager
     private timer: GameTimer | null = null
@@ -113,6 +116,7 @@ export class SatelliteSyncGame {
         this.state.timeRemaining = level.timeBudget
         this.state.combo = 0
         this.state.multiplier = 1
+        this.comboRevision += 1
         this.state.status = 'playing'
 
         this.stopTimer()
@@ -238,6 +242,7 @@ export class SatelliteSyncGame {
         ) {
             this.state.combo = 0
             this.state.multiplier = 1
+            this.comboRevision += 1
             this.callbacks.onComboReset()
         }
     }
@@ -319,6 +324,7 @@ export class SatelliteSyncGame {
             lockedTargetId: sat.lockedTargetId,
             combo: this.state.combo,
             multiplier: this.state.multiplier,
+            comboRevision: this.comboRevision,
         }
     }
 
@@ -400,19 +406,18 @@ export class SatelliteSyncGame {
         }
         sat.aimAngle = snapshot.aimAngle
         sat.snapCandidateId = snapshot.snapCandidateId
-        // Only restore combo state if nothing newer changed it while the
-        // drag was open (the drag's own begin reset it to 0/×1 when it
-        // unlocked a target).
-        const expectedCombo = snapshot.lockedTargetId ? 0 : snapshot.combo
-        const expectedMultiplier = snapshot.lockedTargetId
-            ? 1
-            : snapshot.multiplier
-        if (
-            this.state.combo === expectedCombo &&
-            this.state.multiplier === expectedMultiplier
-        ) {
+        // Restore the combo only when the sole write since capture is this
+        // drag's own unlock reset (a locked pre-drag satellite always resets
+        // it to 0/×1 in beginAim). An unrelated reset that coincidentally
+        // also leaves 0/×1 increments the revision a second time, so the
+        // newer reset stands instead of being rolled back.
+        const expectedRevision = snapshot.lockedTargetId
+            ? snapshot.comboRevision + 1
+            : snapshot.comboRevision
+        if (this.comboRevision === expectedRevision) {
             this.state.combo = snapshot.combo
             this.state.multiplier = snapshot.multiplier
+            this.comboRevision += 1
         }
         return true
     }
@@ -468,6 +473,7 @@ export class SatelliteSyncGame {
 
         const points = lockPoints(this.state.combo)
         this.scoreManager.addPoints(points, 'lock')
+        this.comboRevision += 1
         this.callbacks.onLock({
             combo: this.state.combo,
             multiplier: this.state.multiplier,
@@ -490,6 +496,7 @@ export class SatelliteSyncGame {
         sat.lockedTargetId = null
         this.state.combo = 0
         this.state.multiplier = 1
+        this.comboRevision += 1
         this.callbacks.onComboReset()
     }
 
