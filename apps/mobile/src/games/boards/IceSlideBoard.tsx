@@ -270,17 +270,27 @@ export function IceSlideBoard({
                   onRetry={refresh}
                 />
               )
-            ) : dailyEntries.length === 0 ? (
-              ICE_SLIDE_GAME ? (
-                <EmptyBoard game={ICE_SLIDE_GAME} />
-              ) : null
             ) : (
-              dailyEntries.map(entry => (
-                <LeaderboardRow
-                  key={`${entry.rank}-${entry.username ?? entry.name}`}
-                  entry={entry}
-                />
-              ))
+              <>
+                {/* A failed refetch keeps the last good board (useRemoteData
+                    retains it), so the error and its retry must stay visible
+                    alongside the stale rows instead of only replacing them. */}
+                {error ? (
+                  <LeaderboardError error={error} onRetry={refresh} />
+                ) : null}
+                {dailyEntries.length === 0 ? (
+                  ICE_SLIDE_GAME ? (
+                    <EmptyBoard game={ICE_SLIDE_GAME} />
+                  ) : null
+                ) : (
+                  dailyEntries.map(entry => (
+                    <LeaderboardRow
+                      key={`${entry.rank}-${entry.username ?? entry.name}`}
+                      entry={entry}
+                    />
+                  ))
+                )}
+              </>
             )}
           </View>
         </View>
