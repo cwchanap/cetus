@@ -1,5 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Path, Rect } from '@shopify/react-native-skia'
 import { Button } from '@cetus/ui'
@@ -54,24 +60,61 @@ const readScene = (state: TetrisState): TetrisScene => ({
   held: copyPiece(state.heldPiece),
 })
 
+/** "column 3", "columns 1 and 3", "columns 1, 3 and 5". */
+const formatColumns = (columns: number[]): string => {
+  const labels = columns.map(column => String(column + 1))
+  if (labels.length === 1) {
+    return `column ${labels[0]}`
+  }
+  return `columns ${labels.slice(0, -1).join(', ')} and ${
+    labels[labels.length - 1]
+  }`
+}
+
+/** One description per occupied row, so gaps in the stack stay audible. */
+const describeStack = (cells: Array<Array<number | null>>): string[] => {
+  const rows: string[] = []
+  for (let row = 0; row < cells.length; row += 1) {
+    const occupied: number[] = []
+    for (let column = 0; column < cells[row].length; column += 1) {
+      if (cells[row][column] !== null) {
+        occupied.push(column)
+      }
+    }
+    if (occupied.length > 0) {
+      rows.push(`Row ${row + 1}: ${formatColumns(occupied)}.`)
+    }
+  }
+  return rows
+}
+
+/** Absolute occupied cells of the falling piece, grouped by row. */
+const describeFallingPiece = (piece: ScenePiece): string => {
+  const rows: string[] = []
+  for (let row = 0; row < piece.shape.length; row += 1) {
+    const occupied: number[] = []
+    for (let column = 0; column < piece.shape[row].length; column += 1) {
+      if (piece.shape[row][column] && piece.y + row >= 0) {
+        occupied.push(piece.x + column)
+      }
+    }
+    if (occupied.length > 0) {
+      rows.push(`row ${piece.y + row + 1} ${formatColumns(occupied)}`)
+    }
+  }
+  return `Falling ${piece.type}: ${rows.join('; ')}.`
+}
+
 const describeTetrisBoard = (scene: TetrisScene, hud: TetrisHud): string => {
-  const placed = scene.cells.reduce(
-    (total, row) => total + row.filter(cell => cell !== null).length,
-    0
-  )
+  const stack = describeStack(scene.cells)
   const parts = ['Tetris board, 10 by 20.']
-  if (scene.piece === null && placed === 0) {
+  if (scene.piece === null && stack.length === 0) {
     parts.push('Waiting to start.')
   } else {
-    parts.push(
-      `Level ${hud.level}, ${hud.lines} lines cleared, ${placed} blocks placed.`
-    )
+    parts.push(`Level ${hud.level}, ${hud.lines} lines cleared.`)
+    parts.push(...stack)
     if (scene.piece) {
-      parts.push(
-        `${scene.piece.type} piece at row ${scene.piece.y + 1}, column ${
-          scene.piece.x + 1
-        }.`
-      )
+      parts.push(describeFallingPiece(scene.piece))
     }
   }
   parts.push(`Next ${scene.next?.type ?? 'none'}.`)
@@ -84,6 +127,11 @@ const describeTetrisBoard = (scene: TetrisScene, hud: TetrisHud): string => {
 }
 
 const PREVIEW_CELL = 12
+// Static reserve under the field for the HUD, one controls row and padding.
+// Enlarged text can exceed it; the ScrollView is the fallback then.
+const RESERVED_HEIGHT = 150
+const FIELD_WIDTH_RATIO = 0.6
+const MIN_FIELD_WIDTH = 120
 
 function PiecePreview({
   label,
@@ -148,8 +196,11 @@ const CONTROLS: ReadonlyArray<{
  * previews over a copied local scene, with the model's own `Date.now()`
  * gravity driven by the shared frame loop. One Pan commits at most one
  * command per completed gesture (cancelled and stale-run gestures are
- * dropped); every swipe has a labelled control equivalent and the board
- * carries a screen-reader description of the piece, next, hold and stack.
+ * dropped); every swipe has a labelled control equivalent. The board
+ * description names every occupied row, the falling piece's occupied cells
+ * (so stack gaps and rotations are audible), next and hold. The field is
+ * fitted against the viewport height as well as its width, and the page
+ * scrolls when enlarged text leaves too little room.
  */
 export function TetrisBoard({ projected, game }: NativeGameViewProps) {
   const tetris = game as TetrisGame
@@ -164,6 +215,31 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
   // Run id captured at gesture begin: a finalize that lands after a reset or
   // replay must not move the replacement run's piece.
   const gestureRunRef = useRef<number | null>(null)
+  // The field is 2× taller than wide, so it is fitted against both the
+  // viewport width and the height left under the chrome/controls.
+  const [viewport, setViewport] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+  const fieldWidth =
+    viewport === null
+      ? null
+      : Math.max(
+          MIN_FIELD_WIDTH,
+          Math.min(
+            viewport.width * FIELD_WIDTH_RATIO,
+            (viewport.height - RESERVED_HEIGHT) / 2
+          )
+        )
+
+  const onViewport = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout
+    setViewport(current =>
+      current !== null && current.width === width && current.height === height
+        ? current
+        : { width, height }
+    )
+  }
 
   useGameLoop(tetris, () => {
     const state = tetris.getState()
@@ -241,7 +317,12 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
   }
 
   return (
-    <View className="flex-1 gap-3 px-4 pb-4">
+    <ScrollView
+      testID="tetris-scroll"
+      className="flex-1"
+      contentContainerStyle={styles.content}
+      onLayout={onViewport}
+    >
       <View className="flex-row items-center justify-between gap-2">
         <Text
           testID="tetris-level"
@@ -260,7 +341,10 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
         <GestureDetector gesture={pan}>
           <View
             testID="tetris-board"
-            style={styles.board}
+            style={[
+              styles.board,
+              fieldWidth === null ? styles.boardFluid : { width: fieldWidth },
+            ]}
             accessible
             accessibilityLabel={describeTetrisBoard(scene, hud)}
           >
@@ -327,16 +411,23 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
           )
         })}
       </View>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
+  content: {
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
   board: {
-    width: '60%',
     aspectRatio: 0.5,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  boardFluid: {
+    width: '60%',
   },
   preview: {
     minHeight: PREVIEW_CELL * 2,
