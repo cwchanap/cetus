@@ -141,10 +141,9 @@ export class CircuitHackerController {
             return
         }
         this.difficulty = difficulty
-        if (phase === 'idle') {
-            // The chrome HUD counts down from the selected tier before Start.
-            this.deps.handlers.onTime?.(DIFFICULTY_CONFIGS[difficulty].duration)
-        }
+        // The chrome HUD shows the selected tier's duration whenever no run is
+        // live (both before Start and after a finished run).
+        this.deps.handlers.onTime?.(DIFFICULTY_CONFIGS[difficulty].duration)
         this.publish()
     }
 

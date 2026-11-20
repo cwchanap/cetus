@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { AccessibilityInfo, ScrollView, Text, View } from 'react-native'
+import { AccessibilityInfo, Text, View } from 'react-native'
 import { Button } from '@cetus/ui'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from 'react-native-gesture-handler'
 import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
 import {
   bearing,
@@ -93,6 +97,7 @@ export function SatelliteSyncBoard({
   )
   const [aimStatus, setAimStatus] = useState<string | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
+  const scrollRef = useRef<ScrollView | null>(null)
   const dragCandidateRef = useRef<string | null>(null)
   const dragIdentityRef = useRef<SatelliteAimIdentity | null>(null)
   const dragActiveRef = useRef(false)
@@ -107,6 +112,22 @@ export function SatelliteSyncBoard({
     dragActiveRef.current = false
     dragBeganRef.current = false
     dragSnapshotRef.current = null
+  }
+
+  /** Roll back an in-progress drag that was cut off before a valid release. */
+  const cancelActiveDrag = () => {
+    const identity = dragIdentityRef.current
+    const began = dragBeganRef.current
+    const snapshot = dragSnapshotRef.current
+    clearDrag()
+    if (!began || !snapshot || !identity) {
+      return
+    }
+    if (!controller.isAimIdentityCurrent(identity)) {
+      return
+    }
+    controller.restoreAim(snapshot)
+    syncScene()
   }
 
   /** Copy the live scene, clearing board-local aiming UI when the scene no
@@ -203,10 +224,11 @@ export function SatelliteSyncBoard({
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
         // onBegin only hit-tests: a touch-down that turns into a scroll or
         // a failed pan must not unlock or re-aim anything.
         .onBegin(event => {
-          clearDrag()
+          cancelActiveDrag()
           if (!controller.isRunning()) {
             return
           }
@@ -252,14 +274,15 @@ export function SatelliteSyncBoard({
             const snapshot = controller.beginAim(satelliteId)
             dragSnapshotRef.current = snapshot
             if (snapshot && !controller.isAimCurrent(snapshot)) {
-              clearDrag()
+              cancelActiveDrag()
               return
             }
           } else {
             const snapshot = dragSnapshotRef.current
             if (snapshot && !controller.isAimCurrent(snapshot)) {
-              // Another action claimed the pre-drag lock: stop the drag.
-              clearDrag()
+              // Another action claimed the pre-drag lock: roll back the
+              // abandoned aim/snap candidate and stop the drag.
+              cancelActiveDrag()
               return
             }
           }
@@ -282,10 +305,8 @@ export function SatelliteSyncBoard({
           if (!controller.isAimIdentityCurrent(identity)) {
             return
           }
-          if (success) {
-            if (controller.isAimCurrent(snapshot)) {
-              controller.endAim(satelliteId)
-            }
+          if (success && controller.isAimCurrent(snapshot)) {
+            controller.endAim(satelliteId)
           } else {
             controller.restoreAim(snapshot)
           }
@@ -349,6 +370,7 @@ export function SatelliteSyncBoard({
 
   return (
     <ScrollView
+      ref={scrollRef}
       className="flex-1"
       contentContainerStyle={{
         gap: 12,

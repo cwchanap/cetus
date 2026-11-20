@@ -446,6 +446,14 @@ describe('Bejeweled pilot — board', () => {
     fireLayouts(tree)
     const game = createdGames[0]
 
+    const scroll = tree.root.findByProps({
+      handlerType: 'NativeViewGestureHandler',
+    })
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.blocksHandlers).toContain(
+      scroll.props.handlerTag
+    )
+
     await press(tree, 'Start game')
     setGrid(game, VALID_SWAP_GRID())
 

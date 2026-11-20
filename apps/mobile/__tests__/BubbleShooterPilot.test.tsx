@@ -403,6 +403,14 @@ describe('Bubble Shooter pilot — board', () => {
     await startRun(tree)
     const game = createdGames[0]
 
+    const scroll = tree.root.findByProps({
+      handlerType: 'NativeViewGestureHandler',
+    })
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.blocksHandlers).toContain(
+      scroll.props.handlerTag
+    )
+
     // A drag inside the board aims the live model through the letterbox.
     beginDragAt(tree, screenX(300), screenY(700))
     dragTo(tree, 560, 300)

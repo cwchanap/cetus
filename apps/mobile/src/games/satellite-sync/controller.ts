@@ -53,7 +53,7 @@ export class SatelliteSyncController {
     }
 
     getStatus(): SatelliteSyncStatus {
-        return this.game?.getState().status ?? 'idle'
+        return this.game?.getStatus() ?? 'idle'
     }
 
     isRunning(): boolean {

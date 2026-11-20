@@ -131,6 +131,7 @@ export class IceSlideController {
     private mode: IceSlidePlayableMode = 'campaign'
     private retainedRun: IceSlideRunDefinition | null = null
     private dailyDateKey: string | null = null
+    private publishedDailyDateKey: string | null = null
     private dailySaves = 0
     private ended = false
     private startError: string | null = null
@@ -156,6 +157,25 @@ export class IceSlideController {
 
     getMode(): IceSlidePlayableMode {
         return this.mode
+    }
+
+    getNow(): Date {
+        return this.now()
+    }
+
+    /** If the board is idle in Daily mode and the UTC date has rolled over
+     *  since the last publish, publish the new date so the board and its
+     *  run-keyed leaderboard follow today's UTC date. */
+    syncIdleDailyDate(): boolean {
+        if (this.mode !== 'daily' || this.game !== null) {
+            return false
+        }
+        const currentKey = toIceSlideUtcDateKey(this.now())
+        if (currentKey === this.publishedDailyDateKey) {
+            return false
+        }
+        this.publish()
+        return true
     }
 
     isRunning(): boolean {
@@ -189,7 +209,10 @@ export class IceSlideController {
             starsPossible: state?.starsPossible ?? 0,
             dailyDateKey:
                 this.mode === 'daily'
-                    ? (this.dailyDateKey ?? toIceSlideUtcDateKey(this.now()))
+                    ? state !== null
+                        ? (this.dailyDateKey ??
+                          toIceSlideUtcDateKey(this.now()))
+                        : toIceSlideUtcDateKey(this.now())
                     : null,
             dailySaves: this.dailySaves,
             seed:
@@ -323,6 +346,8 @@ export class IceSlideController {
         this.game?.destroy()
         this.game = null
         this.retainedRun = null
+        this.dailyDateKey = null
+        this.publishedDailyDateKey = null
         this.dailySaves = 0
         this.ended = false
     }
@@ -394,9 +419,11 @@ export class IceSlideController {
         } else {
             // Non-saving Stop (Daily early stop, zero score, already
             // stopped): back to the pre-start UI with a cleared result.
-            // No replay is offered, so the retained run/seed is dropped too.
+            // No replay is offered, so the retained run/seed and frozen
+            // Daily date key are dropped too.
             this.ended = false
             this.retainedRun = null
+            this.dailyDateKey = null
             game.destroy()
             this.game = null
             this.deps.results.idle()
@@ -426,10 +453,12 @@ export class IceSlideController {
     /** Copied scene + stabilized score/time HUD in one synchronous refresh. */
     private publish(): void {
         const state = this.game?.getState()
+        const projection = this.getProjection()
+        this.publishedDailyDateKey = projection.dailyDateKey
         this.deps.handlers.onScore?.(state?.score ?? 0)
         this.deps.handlers.onTime?.(state?.elapsedSeconds ?? 0)
         this.deps.handlers.setProjected(
-            this.getProjection() as unknown as NativeGameProjection
+            projection as unknown as NativeGameProjection
         )
     }
 }

@@ -1180,14 +1180,15 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(testText(tree, 'rr-feedback')).toBe('Perfect!')
     expect(announce).toHaveBeenCalledTimes(1)
 
-    // A newly due note must not immediately interrupt the ongoing cue.
+    // A newly due note must not immediately interrupt the ongoing 3-note cue,
+    // even once the 1.5 s base interval has elapsed.
     setAudioTime(6.01)
     elapsedMs = 1000
     frameTime += 16
     fireFrame(frameTime)
     expect(announce).toHaveBeenCalledTimes(1)
 
-    setAudioTime(6.6)
+    setAudioTime(7.01)
     elapsedMs = 1590
     frameTime += 16
     fireFrame(frameTime)

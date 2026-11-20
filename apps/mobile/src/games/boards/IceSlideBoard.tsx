@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { useRemoteData } from '@cetus/app-core'
 import { Button } from '@cetus/ui'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from 'react-native-gesture-handler'
 import { Circle, Group, Rect } from '@shopify/react-native-skia'
 import { createIceSlideDailyCompetitionKey } from '@cetus/games/ice-slide/daily'
 import type { CellType, Direction } from '@cetus/games/ice-slide/types'
@@ -152,7 +156,40 @@ export function IceSlideBoard({
     ['leaderboard', GameID.ICE_SLIDE, 'daily', competitionKey ?? ''],
     dailyEnabled
   )
-  useRefetchOnFocus(refresh)
+  const refreshDaily = useCallback(() => {
+    if (!controller.syncIdleDailyDate()) {
+      refresh()
+    }
+  }, [controller, refresh])
+  useRefetchOnFocus(refreshDaily)
+
+  // Roll an idle Daily board over at UTC midnight so its date label and
+  // leaderboard query don't stay on yesterday's competition key.
+  useEffect(() => {
+    if (
+      scene.mode !== 'daily' ||
+      scene.status !== 'idle' ||
+      scene.dailyDateKey === null
+    ) {
+      return
+    }
+    if (controller.syncIdleDailyDate()) {
+      return
+    }
+    const now = controller.getNow()
+    const nextMidnightMs = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1
+    )
+    const delayMs = Math.max(1, nextMidnightMs - now.getTime())
+    const timer = setTimeout(() => {
+      controller.syncIdleDailyDate()
+    }, delayMs)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [controller, scene.mode, scene.status, scene.dailyDateKey])
 
   // A committed Daily save bumps scene.dailySaves after the POST resolves;
   // refresh then so the saved entry appears without a focus round-trip.
@@ -164,10 +201,13 @@ export function IceSlideBoard({
     }
   }, [scene.dailySaves, refresh])
 
+  const scrollRef = useRef<ScrollView | null>(null)
+
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
         // A cancelled pan must never move the player: commit on END only.
         .onFinalize((event, success) => {
           if (!success) {
@@ -189,6 +229,7 @@ export function IceSlideBoard({
 
   return (
     <ScrollView
+      ref={scrollRef}
       className="flex-1"
       contentContainerStyle={{
         gap: 12,
@@ -277,7 +318,7 @@ export function IceSlideBoard({
               ) : (
                 <LeaderboardError
                   error={error ?? new Error('Leaderboard request failed')}
-                  onRetry={refresh}
+                  onRetry={refreshDaily}
                 />
               )
             ) : (
@@ -286,7 +327,7 @@ export function IceSlideBoard({
                     retains it), so the error and its retry must stay visible
                     alongside the stale rows instead of only replacing them. */}
                 {error ? (
-                  <LeaderboardError error={error} onRetry={refresh} />
+                  <LeaderboardError error={error} onRetry={refreshDaily} />
                 ) : null}
                 {dailyEntries.length === 0 ? (
                   ICE_SLIDE_GAME ? (

@@ -380,8 +380,21 @@ describe('Satellite Sync pilot — aiming', () => {
     fireLayout(tree)
     fireFrame(100)
 
+    const scroll = tree.root.findByProps({
+      handlerType: 'NativeViewGestureHandler',
+    })
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.blocksHandlers).toContain(
+      scroll.props.handlerTag
+    )
+
     const controller = controllerOf(tree)
     const game = controller.getGame() as SatelliteSyncGame
+    const getStateSpy = jest.spyOn(game, 'getState')
+    expect(controller.getStatus()).toBe('playing')
+    expect(controller.isRunning()).toBe(true)
+    expect(getStateSpy).not.toHaveBeenCalled()
+    getStateSpy.mockRestore()
     const satellite = game.getState().satellites[0]
     const target = game.getState().targets[0]
 
@@ -673,12 +686,20 @@ describe('Satellite Sync pilot — aiming', () => {
     expect(game.getState().targets[0].lockedBySatId).toBe('sat-1')
     const scoreBefore = game.getState().score
 
-    // The outstanding cancel must reject instead of stealing it back.
+    // Further drag movement is cut off early, clearing the snap candidate
+    // and restoring the abandoned beam angle; a subsequent cancel stays a
+    // no-op instead of stealing target 1 back.
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
     firePan(tree, 'onFinalize', undefined, false)
 
     const after = game.getState()
     expect(after.targets[0].lockedBySatId).toBe('sat-1')
     expect(after.satellites[0].lockedTargetId).toBeNull()
+    expect(after.satellites[0].snapCandidateId).toBeNull()
     expect(after.satellites[1].lockedTargetId).toBe('target-0')
     expect(
       after.satellites.filter(
@@ -687,6 +708,46 @@ describe('Satellite Sync pilot — aiming', () => {
     ).toHaveLength(1)
     expect(after.score).toBe(scoreBefore)
     expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a drag cut off early by a new begin restores the previous lock, combo, beam angle and snap ring', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    const before = game.getState()
+    expect(before.targets[0].locked).toBe(true)
+    expect(before.combo).toBe(1)
+
+    const satellite = before.satellites[0]
+    const nextTarget = before.targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+    expect(game.getState().satellites[0].snapCandidateId).toBe(nextTarget.id)
+    expect(game.getState().targets[0].locked).toBe(false)
+
+    // Cut the drag off early without a matching finalize.
+    firePan(tree, 'onBegin', { x: 2, y: 2 })
+
+    const after = game.getState()
+    expect(after.targets[0].locked).toBe(true)
+    expect(after.targets[0].lockedBySatId).toBe('sat-0')
+    expect(after.satellites[0].lockedTargetId).toBe('target-0')
+    expect(after.satellites[0].snapCandidateId).toBeNull()
+    expect(after.satellites[0].aimAngle).toBeCloseTo(
+      before.satellites[0].aimAngle,
+      6
+    )
+    expect(after.combo).toBe(before.combo)
+    expect(after.multiplier).toBe(before.multiplier)
   })
 })
 

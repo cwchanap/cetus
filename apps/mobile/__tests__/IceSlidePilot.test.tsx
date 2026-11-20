@@ -424,6 +424,14 @@ describe('Ice Slide pilot — Campaign start, moves and stop', () => {
     await press(tree, 'Start game')
     const game = gameOf(tree)
 
+    const scroll = tree.root.findByProps({
+      handlerType: 'NativeViewGestureHandler',
+    })
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.blocksHandlers).toContain(
+      scroll.props.handlerTag
+    )
+
     swipe(tree, { x: 12, y: 12 }, false)
     expect(game.getState().levelIndex).toBe(0)
     expect(game.getState().moves).toBe(0)
