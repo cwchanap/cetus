@@ -102,9 +102,14 @@ const calibrationLabel = (calibrationMs: number): string =>
   `Calibration ${calibrationMs >= 0 ? '+' : ''}${calibrationMs} ms`
 
 const CUE_LEAD_SECONDS = 1.5
-// shortcut: speech may exceed this interval; use cross-platform completion when available.
 const CUE_INTERVAL_MS = 1500
+const CUE_EXTRA_NOTE_MS = 500
 const UPCOMING_LIMIT = 4
+
+/** Hold the announcement channel long enough for a multi-note cue to finish
+ *  speaking before the next cue can fire and cut it off. */
+const cueDurationMs = (noteCount: number): number =>
+  CUE_INTERVAL_MS + Math.max(0, noteCount - 2) * CUE_EXTRA_NOTE_MS
 
 const approachNotes = (state: RhythmReactorState) =>
   state.pendingNotes
@@ -204,16 +209,18 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
 
   const announcedNotesRef = useRef<Set<string>>(new Set())
   const lastCueAtRef = useRef<number | null>(null)
+  const lastCueDurationMsRef = useRef(CUE_INTERVAL_MS)
   useEffect(() => {
     if (!running) {
       announcedNotesRef.current.clear()
       lastCueAtRef.current = null
+      lastCueDurationMsRef.current = CUE_INTERVAL_MS
       return
     }
     const now = Date.now()
     if (
       lastCueAtRef.current !== null &&
-      now - lastCueAtRef.current < CUE_INTERVAL_MS
+      now - lastCueAtRef.current < lastCueDurationMsRef.current
     ) {
       return
     }
@@ -232,8 +239,10 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
             CUE_LEAD_SECONDS + CUE_INTERVAL_MS / 1000
       )
       .sort((a, b) => a.hitTimeSeconds - b.hitTimeSeconds)
+      .slice(0, UPCOMING_LIMIT)
     notes.forEach(note => announcedNotesRef.current.add(note.id))
     lastCueAtRef.current = now
+    lastCueDurationMsRef.current = cueDurationMs(notes.length)
     void AccessibilityInfo.announceForAccessibility(
       `${notes
         .map(

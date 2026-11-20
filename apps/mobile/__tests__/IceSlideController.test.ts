@@ -264,14 +264,28 @@ describe('Ice Slide controller — mode binding and start', () => {
         )
         expect(controller.getProjection().dailyDateKey).toBe('2026-08-13')
 
-        // A Daily early stop never saves; the next Start is a fresh same-day
-        // run bound to the current UTC date.
+        // A Daily early stop never saves; if midnight passed before or while
+        // returning to idle, the idle projection immediately shows the new
+        // UTC date instead of the stopped run's date.
+        now = new Date('2026-08-14T00:00:05Z')
         controller.stop()
         expect(results.finishAndSave).toHaveBeenCalledTimes(1)
         expect(results.idle).toHaveBeenCalled()
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-14')
+
+        // If midnight passes while already idle in Daily mode,
+        // syncIdleDailyDate republishes the new UTC date key.
+        now = new Date('2026-08-15T00:00:01Z')
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-15')
+        expect(controller.syncIdleDailyDate()).toBe(true)
+        expect(handlers.setProjected).toHaveBeenLastCalledWith(
+            expect.objectContaining({ dailyDateKey: '2026-08-15' })
+        )
+        expect(controller.syncIdleDailyDate()).toBe(false)
+
         controller.start()
         expect(gameOf(controller).getState().runKey).toBe(
-            'ice-slide:daily:2026-08-13:g1:r1'
+            'ice-slide:daily:2026-08-15:g1:r1'
         )
         controller.cleanup()
     })

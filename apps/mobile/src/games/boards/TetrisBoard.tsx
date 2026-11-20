@@ -1,12 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
 import {
+  Gesture,
+  GestureDetector,
   ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+} from 'react-native-gesture-handler'
 import { Path, Rect } from '@shopify/react-native-skia'
 import { Button } from '@cetus/ui'
 import type { TetrisGame } from '@cetus/games/tetris/TetrisGame'
@@ -215,6 +213,7 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
   // Run id captured at gesture begin: a finalize that lands after a reset or
   // replay must not move the replacement run's piece.
   const gestureRunRef = useRef<number | null>(null)
+  const scrollRef = useRef<ScrollView | null>(null)
   // The field is 2× taller than wide, so it is fitted against both the
   // viewport width and the height left under the chrome/controls.
   const [viewport, setViewport] = useState<{
@@ -254,6 +253,7 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
         .onBegin(() => {
           gestureRunRef.current = tetris.getRunId()
         })
@@ -318,6 +318,7 @@ export function TetrisBoard({ projected, game }: NativeGameViewProps) {
 
   return (
     <ScrollView
+      ref={scrollRef}
       testID="tetris-scroll"
       className="flex-1"
       contentContainerStyle={styles.content}

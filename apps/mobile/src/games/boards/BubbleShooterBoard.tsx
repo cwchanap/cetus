@@ -1,13 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import {
   AccessibilityInfo,
-  ScrollView,
   StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
 } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from 'react-native-gesture-handler'
 import { Circle, Rect } from '@shopify/react-native-skia'
 import { Button } from '@cetus/ui'
 import type { BubbleShooterGame } from '@cetus/games/bubble-shooter/BubbleShooterGame'
@@ -195,6 +198,7 @@ export function BubbleShooterBoard({ projected, game }: NativeGameViewProps) {
     height: number
   } | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
+  const scrollRef = useRef<ScrollView | null>(null)
   // Run id and in-board start captured at gesture begin: a finalize that
   // lands after a reset, from a cancelled pan, or from a touch that began
   // outside the letterboxed board must not fire.
@@ -235,6 +239,7 @@ export function BubbleShooterBoard({ projected, game }: NativeGameViewProps) {
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
         .onBegin(event => {
           gestureRunRef.current = shooterGame.getRunId()
           const geometry = geometryRef.current
@@ -350,6 +355,7 @@ export function BubbleShooterBoard({ projected, game }: NativeGameViewProps) {
 
   return (
     <ScrollView
+      ref={scrollRef}
       testID="bubble-scroll"
       className="flex-1"
       contentContainerStyle={styles.content}

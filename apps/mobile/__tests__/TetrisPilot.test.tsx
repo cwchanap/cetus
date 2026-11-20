@@ -459,6 +459,14 @@ describe('Tetris pilot — board', () => {
     fireLayouts(tree)
     const game = createdGames[0]
 
+    const scroll = tree.root.findByProps({
+      handlerType: 'NativeViewGestureHandler',
+    })
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.blocksHandlers).toContain(
+      scroll.props.handlerTag
+    )
+
     await press(tree, 'Start game')
     fireFrame(16)
     const start = currentPiece(game)

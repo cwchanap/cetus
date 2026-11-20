@@ -21,6 +21,7 @@ import {
 import type {
     SatelliteSyncCallbacks,
     SatelliteSyncState,
+    SatelliteSyncStatus,
     RuntimeSatellite,
     SatelliteSyncGameData,
     SatelliteAimIdentity,
@@ -381,11 +382,16 @@ export class SatelliteSyncGame {
      * so a rollback can never overwrite a newer run, level or lock owner.
      */
     restoreAimState(snapshot: SatelliteAimSnapshot): boolean {
-        if (!this.isAimStateCurrent(snapshot)) {
+        if (!this.isAimIdentityCurrent(snapshot)) {
             return false
         }
         const sat = this.findSatellite(snapshot.satelliteId)
-        if (!sat) {
+        if (!sat || sat.lockedTargetId !== null) {
+            return false
+        }
+        sat.aimAngle = snapshot.aimAngle
+        sat.snapCandidateId = snapshot.snapCandidateId
+        if (!this.isAimStateCurrent(snapshot)) {
             return false
         }
         const restoredTarget = snapshot.lockedTargetId
@@ -404,8 +410,6 @@ export class SatelliteSyncGame {
                 target.lockedBySatId = null
             }
         }
-        sat.aimAngle = snapshot.aimAngle
-        sat.snapCandidateId = snapshot.snapCandidateId
         // Restore the combo only when the sole write since capture is this
         // drag's own unlock reset (a locked pre-drag satellite always resets
         // it to 0/×1 in beginAim). An unrelated reset that coincidentally
@@ -525,6 +529,10 @@ export class SatelliteSyncGame {
 
     private satWorld(sat: RuntimeSatellite): WorldPoint {
         return polarToWorld(sat.ring, sat.angle)
+    }
+
+    getStatus(): SatelliteSyncStatus {
+        return this.state.status
     }
 
     getState(): SatelliteSyncState {

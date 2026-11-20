@@ -77,10 +77,12 @@ describe('SatelliteSyncGame', () => {
     it('starts on level 1 and reports the time budget', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
+        expect(game.getStatus()).toBe('idle')
         game.start()
         const state = game.getState()
         expect(state.levelIndex).toBe(0)
         expect(state.status).toBe('playing')
+        expect(game.getStatus()).toBe('playing')
         expect(cbs.calls.start).toHaveLength(1)
         expect(state.timeRemaining).toBe(60)
         game.cleanup()
@@ -346,8 +348,11 @@ describe('SatelliteSyncGame', () => {
             return
         }
 
-        // Drag unlocks the target, then a concurrent action claims it.
+        // Drag unlocks the target and aims at another target, then a
+        // concurrent action claims the original target.
         game.beginAim('sat-0')
+        expect(game.aimAtTarget('sat-0', 'target-1')).toBe(true)
+        expect(game.getState().satellites[0].snapCandidateId).toBe('target-1')
         expect(game.getState().targets[0].locked).toBe(false)
         game.beginAim('sat-1')
         game.aimAtTarget('sat-1', 'target-0')
@@ -361,6 +366,8 @@ describe('SatelliteSyncGame', () => {
         const after = game.getState()
         expect(after.targets[0].lockedBySatId).toBe('sat-1')
         expect(after.satellites[0].lockedTargetId).toBeNull()
+        expect(after.satellites[0].snapCandidateId).toBeNull()
+        expect(after.satellites[0].aimAngle).toBe(snapshot.aimAngle)
         expect(after.satellites[1].lockedTargetId).toBe('target-0')
         expect(
             after.satellites.filter(

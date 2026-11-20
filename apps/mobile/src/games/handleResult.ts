@@ -41,7 +41,6 @@ export interface HandleResultOptions {
  * score-eligible finish publishes a provisional `pending` result, issues
  * exactly ONE injected POST, then settles the SAME run to `saved` or
  * `unconfirmed`. A non-saving finish publishes a local result with no
- * published. A non-saving finish publishes a local result with no
  * `saveStatus` at all. Stale prior-run completions never overwrite a newer
  * run's result, `idle` invalidates any in-flight run, yet a prior run's
  * committed awards still forward once (matching BaseGame); disposal

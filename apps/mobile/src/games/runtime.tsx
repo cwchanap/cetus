@@ -228,7 +228,13 @@ export function createHandleGameRuntime(
     isDisposed: () => disposed,
   })
 
-  binding = handlePort.createBinding({ ...deps, handlers, results })
+  try {
+    binding = handlePort.createBinding({ ...deps, handlers, results })
+  } catch (error) {
+    disposed = true
+    session.dispose()
+    throw error
+  }
 
   const PortView = handlePort.view
   const RuntimeView = memo(function NativeHandleGameView({

@@ -476,6 +476,9 @@ describe('Circuit Hacker pilot — score contract', () => {
 
     await press(tree, 'Select difficulty easy')
     expect(controller.getDifficulty()).toBe('easy')
+    expect(testText(tree, 'game-time')).toBe(
+      formatTestTime(DIFFICULTY_CONFIGS.easy.duration)
+    )
     await press(tree, 'Play again')
 
     const next = controller.getGame()

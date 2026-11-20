@@ -60,9 +60,18 @@ describe('getScopedGameLeaderboard on a fresh Better Auth schema', () => {
     })
 
     it('adds the identity columns before the scoped query and returns the ranking', async () => {
+        await sql`
+            CREATE TABLE IF NOT EXISTS game_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                game_id TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `.execute(db)
         // Better Auth's canonical fresh user table: name/email/image only.
         await sql`
-            CREATE TABLE "user" (
+            CREATE TABLE IF NOT EXISTS "user" (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,

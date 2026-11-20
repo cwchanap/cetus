@@ -1464,4 +1464,21 @@ describe('NativeGameHost — producer setup rollback', () => {
     ).toThrow('project boom')
     expect(destroy).toHaveBeenCalledTimes(1)
   })
+
+  test('a throwing handle binding disposes the already-created handle session', () => {
+    const brokenHandlePort: NativeHandlePort = {
+      ...handlePort,
+      createBinding: () => {
+        throw new Error('binding boom')
+      },
+    }
+
+    expect(() =>
+      createHandleGameRuntime(brokenHandlePort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('binding boom')
+    expect(mockCleanupOrder).toEqual(['handle-session-disposed'])
+  })
 })

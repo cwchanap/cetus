@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
 } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from 'react-native-gesture-handler'
 import { Rect, RoundedRect } from '@shopify/react-native-skia'
 import type { BejeweledGame } from '@cetus/games/bejeweled/game'
 import {
@@ -106,6 +109,7 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
     height: number
   } | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
+  const scrollRef = useRef<ScrollView | null>(null)
   // Run id captured at gesture begin: a finalize that lands after a reset or
   // replay must not command the replacement run.
   const gestureRunRef = useRef<number | null>(null)
@@ -229,6 +233,7 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
         .onBegin(event => {
           gestureRunRef.current = bejeweled.getRunId()
           gestureStartRef.current = { x: event.x, y: event.y }
@@ -373,6 +378,7 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
 
   return (
     <ScrollView
+      ref={scrollRef}
       testID="bejeweled-scroll"
       className="flex-1"
       contentContainerStyle={styles.content}
