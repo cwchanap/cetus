@@ -574,6 +574,76 @@ describe('Ice Slide pilot — Daily mode and leaderboard', () => {
     expect(renderedText(tree)).toContain('Score 0')
   })
 
+  test('a committed Daily save refetches the leaderboard once the POST resolves', async () => {
+    const dateKey = toIceSlideUtcDateKey(new Date())
+    const competitionKey = `ice-slide:daily:${dateKey}:g1:r1`
+    let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          releaseSave = resolve
+        })
+    )
+    getLeaderboard.mockResolvedValue(scopedDailyLeaderboard(competitionKey))
+    const tree = await render(<NativeGameHost gameId={GameID.ICE_SLIDE} />)
+
+    await press(tree, 'Select mode daily')
+    expect(renderedText(tree)).toContain('Frost Pilot')
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await press(tree, 'Start game')
+    for (let stage = 0; stage < 5; stage++) {
+      clearStage(tree)
+    }
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    // The ranking must not refetch while the POST is still in flight.
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    getLeaderboard.mockResolvedValue({
+      gameId: GameID.ICE_SLIDE,
+      gameName: 'Ice Slide',
+      viewerAuthenticated: false,
+      leaderboard: [
+        {
+          rank: 1,
+          name: 'New Pilot',
+          username: 'newbie',
+          image: null,
+          score: 4321,
+          created_at: '2026-08-12T11:00:00.000Z',
+          mode: 'daily',
+          competitionKey,
+          rulesetVersion: 1,
+          elapsedSeconds: 95,
+          totalMoves: 12,
+          isCurrentUser: true,
+        },
+        {
+          rank: 2,
+          name: 'Frost Pilot',
+          username: 'frost',
+          image: null,
+          score: 1234,
+          created_at: '2026-08-12T10:00:00.000Z',
+          mode: 'daily',
+          competitionKey,
+          rulesetVersion: 1,
+          elapsedSeconds: 120,
+          totalMoves: 18,
+          isCurrentUser: false,
+        },
+      ],
+    })
+    await act(async () => {
+      releaseSave?.({ success: true })
+    })
+    await drain()
+
+    expect(getLeaderboard).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('New Pilot')
+    expect(renderedText(tree)).toContain('Frost Pilot')
+  })
+
   test('empty and error leaderboard states retry through the shared kit', async () => {
     getLeaderboard.mockResolvedValueOnce({
       gameId: GameID.ICE_SLIDE,

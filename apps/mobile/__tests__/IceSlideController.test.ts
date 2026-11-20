@@ -219,7 +219,9 @@ describe('Ice Slide controller — mode binding and start', () => {
 
     test('Daily binds the UTC date at every Start, including Play again after midnight', () => {
         let now = new Date('2026-08-12T23:59:59Z')
-        const { controller, results } = createController({ now: () => now })
+        const { controller, handlers, results } = createController({
+            now: () => now,
+        })
         controller.selectMode('daily')
         controller.start()
         const game = gameOf(controller)
@@ -241,7 +243,15 @@ describe('Ice Slide controller — mode binding and start', () => {
                     mode: 'daily',
                     solved: true,
                 }),
-            })
+            }),
+            expect.any(Function)
+        )
+        // The Daily save hook bumps the board's leaderboard revision only
+        // once the POST has committed.
+        const onSaved = results.finishAndSave.mock.calls[0][1] as () => void
+        onSaved()
+        expect(handlers.setProjected).toHaveBeenLastCalledWith(
+            expect.objectContaining({ dailySaves: 1 })
         )
 
         // Midnight passes while the result sits on screen: Play again is a
@@ -293,7 +303,8 @@ describe('Ice Slide controller — Expedition seeds and routes', () => {
                     mode: 'expedition',
                     solved: false,
                 }),
-            })
+            }),
+            undefined
         )
 
         // Play again (zero-argument start) keeps the seed and run key.
@@ -451,12 +462,15 @@ describe('Ice Slide controller — no-callback actions refresh the HUD', () => {
         clearStage(gameOf(scored.controller))
         scored.controller.stop()
         expect(scored.results.finishAndSave).toHaveBeenCalledTimes(1)
-        expect(scored.results.finishAndSave).toHaveBeenCalledWith({
-            score: expect.any(Number),
-            stats: expect.objectContaining({ gameCompleted: false }),
-            gameData: expect.objectContaining({ mode: 'campaign' }),
-            context: undefined,
-        })
+        expect(scored.results.finishAndSave).toHaveBeenCalledWith(
+            {
+                score: expect.any(Number),
+                stats: expect.objectContaining({ gameCompleted: false }),
+                gameData: expect.objectContaining({ mode: 'campaign' }),
+                context: undefined,
+            },
+            undefined
+        )
         expect(scored.results.finishAndSave.mock.calls[0][0].score).toBe(
             gameOf(scored.controller).getState().score
         )

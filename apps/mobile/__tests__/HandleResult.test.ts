@@ -159,6 +159,38 @@ describe('createHandleResult', () => {
         expect(submitScore).toHaveBeenCalledTimes(1)
     })
 
+    test('the per-call onSaved fires on a committed save, including a stale run, and never on failure', async () => {
+        let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+        const submitScore = jest.fn(
+            () =>
+                new Promise<ScoreSubmissionResult>(resolve => {
+                    releaseSave = resolve
+                })
+        )
+        const { results } = setup({ submitter: submitScore })
+        const onSaved = jest.fn()
+
+        results.beginRun(IDLE_TIME)
+        results.finishAndSave(
+            { score: 100, stats: STATS, gameData: {} },
+            onSaved
+        )
+        // Replay makes the run stale while its save is still in flight; the
+        // committed save still fires onSaved like it fires onRewards.
+        results.beginRun(180)
+        releaseSave?.({ success: true })
+        await flush()
+        expect(onSaved).toHaveBeenCalledTimes(1)
+
+        results.finishAndSave(
+            { score: 50, stats: STATS, gameData: {} },
+            onSaved
+        )
+        releaseSave?.({ success: false, code: 'NETWORK_ERROR' })
+        await flush()
+        expect(onSaved).toHaveBeenCalledTimes(1)
+    })
+
     test('a failed save reports unconfirmed with its code, never rewards, never re-POSTs', async () => {
         const submitScore = jest
             .fn()
