@@ -55,6 +55,8 @@ export interface IceSlideProjection extends NativeGameProjection {
     starsPossible: number
     /** Daily run date key captured at Start (never rolls at midnight). */
     dailyDateKey: string | null
+    /** Committed Daily saves this session; the board refetches on change. */
+    dailySaves: number
     /** Expedition seed retained for Replay (and shown as the run identity). */
     seed: string | null
     canMove: boolean
@@ -87,6 +89,7 @@ export const ICE_SLIDE_INITIAL_PROJECTION: IceSlideProjection = {
     starsEarned: 0,
     starsPossible: 0,
     dailyDateKey: null,
+    dailySaves: 0,
     seed: null,
     canMove: false,
     canUndo: false,
@@ -128,6 +131,7 @@ export class IceSlideController {
     private mode: IceSlidePlayableMode = 'campaign'
     private retainedRun: IceSlideRunDefinition | null = null
     private dailyDateKey: string | null = null
+    private dailySaves = 0
     private ended = false
     private startError: string | null = null
     private readonly now: () => Date
@@ -187,6 +191,7 @@ export class IceSlideController {
                 this.mode === 'daily'
                     ? (this.dailyDateKey ?? toIceSlideUtcDateKey(this.now()))
                     : null,
+            dailySaves: this.dailySaves,
             seed:
                 this.mode === 'expedition'
                     ? (this.retainedRun?.seed ?? null)
@@ -318,6 +323,7 @@ export class IceSlideController {
         this.game?.destroy()
         this.game = null
         this.retainedRun = null
+        this.dailySaves = 0
         this.ended = false
     }
 
@@ -353,16 +359,26 @@ export class IceSlideController {
         }
         if (submission) {
             this.ended = true
-            this.deps.results.finishAndSave({
-                score: submission.score,
-                stats: {
-                    finalScore: submission.score,
-                    timeElapsed: state.elapsedSeconds,
-                    gameCompleted: submission.gameData.solved,
-                } satisfies BaseGameStats,
-                gameData: { ...submission.gameData },
-                context: submission.context,
-            })
+            this.deps.results.finishAndSave(
+                {
+                    score: submission.score,
+                    stats: {
+                        finalScore: submission.score,
+                        timeElapsed: state.elapsedSeconds,
+                        gameCompleted: submission.gameData.solved,
+                    } satisfies BaseGameStats,
+                    gameData: { ...submission.gameData },
+                    context: submission.context,
+                },
+                // Only a Daily save feeds the board's run-keyed ranking;
+                // bump its revision once the POST has committed.
+                submission.context?.mode === 'daily'
+                    ? () => {
+                          this.dailySaves += 1
+                          this.publish()
+                      }
+                    : undefined
+            )
         } else if (reason === 'win') {
             // A win always has a positive score in practice; stay honest if
             // it does not by reporting a local result with no save status.

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { useRemoteData } from '@cetus/app-core'
 import { Button } from '@cetus/ui'
@@ -153,6 +153,16 @@ export function IceSlideBoard({
     dailyEnabled
   )
   useRefetchOnFocus(refresh)
+
+  // A committed Daily save bumps scene.dailySaves after the POST resolves;
+  // refresh then so the saved entry appears without a focus round-trip.
+  const saveRefreshRef = useRef(scene.dailySaves)
+  useEffect(() => {
+    if (scene.dailySaves !== saveRefreshRef.current) {
+      saveRefreshRef.current = scene.dailySaves
+      refresh()
+    }
+  }, [scene.dailySaves, refresh])
 
   const pan = useMemo(
     () =>

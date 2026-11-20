@@ -45,7 +45,8 @@ export interface HandleResultOptions {
  * `saveStatus` at all. Stale prior-run completions never overwrite a newer
  * run's result, `idle` invalidates any in-flight run, yet a prior run's
  * committed awards still forward once (matching BaseGame); disposal
- * suppresses everything. No retries.
+ * suppresses everything. No retries. `finishAndSave` takes an optional
+ * per-call `onSaved` fired on the same committed-save edge as `onRewards`.
  */
 export function createHandleResult(options: HandleResultOptions) {
     const guard = createRunGuard()
@@ -75,7 +76,7 @@ export function createHandleResult(options: HandleResultOptions) {
             options.onRunStart()
         },
 
-        finishAndSave(finish: HandleScoredFinish): void {
+        finishAndSave(finish: HandleScoredFinish, onSaved?: () => void): void {
             const runId = guard.current()
             if (options.isDisposed() || finishedRun === runId) {
                 return
@@ -127,6 +128,7 @@ export function createHandleResult(options: HandleResultOptions) {
                         achievements: outcome.newAchievements,
                         challenges: outcome.challengeUpdates,
                     })
+                    onSaved?.()
                 }
             })()
         },
