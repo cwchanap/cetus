@@ -936,9 +936,6 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(game.getState().perfectHits).toBe(1)
     expect(game.getState().misses).toBe(0)
     expect(testText(tree, 'rr-feedback')).toBe('Perfect!')
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
-      'Lane 1: Perfect. Combo 1.'
-    )
   })
 
   test('judges the inclusive perfect and good windows and misses beyond good', async () => {
@@ -1098,7 +1095,7 @@ describe('Rhythm Reactor pilot — media clock', () => {
     )
   })
 
-  test('spoken lane cues fire once per approaching note, never per frame', async () => {
+  test('spoken lane cues are paced and not repeated on each frame', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
     fireLayouts(tree)
     await loadAudio()
@@ -1106,6 +1103,9 @@ describe('Rhythm Reactor pilot — media clock', () => {
     await drain()
     const announce = jest.mocked(AccessibilityInfo.announceForAccessibility)
     announce.mockClear()
+    const now = Date.now()
+    let elapsedMs = 0
+    jest.spyOn(Date, 'now').mockImplementation(() => now + elapsedMs)
     const cueCalls = () =>
       announce.mock.calls
         .map(([message]) => message)
@@ -1114,20 +1114,21 @@ describe('Rhythm Reactor pilot — media clock', () => {
     // Below the whole cue lead no note is close enough to speak.
     for (let seconds = 0; seconds < 0.45; seconds += 0.05) {
       setAudioTime(seconds)
+      elapsedMs = seconds * 1000
       frameTime += 50
       fireFrame(frameTime)
     }
     expect(cueCalls()).toHaveLength(0)
 
-    // Each note is cued exactly once as it enters the 1.5 s lead.
+    // The next note is included ahead of time rather than interrupting the cue.
     for (let seconds = 0.5; seconds <= 1.6; seconds += 0.05) {
       setAudioTime(seconds)
+      elapsedMs = seconds * 1000
       frameTime += 50
       fireFrame(frameTime)
     }
     expect(cueCalls()).toEqual([
-      'Lane 1, in 1.5 seconds.',
-      'Lane 2, in 1.5 seconds.',
+      'Lane 1, in 1.5 seconds; lane 2, in 2.5 seconds.',
     ])
 
     // Holding the same clock across many frames never repeats the cue.
@@ -1137,9 +1138,68 @@ describe('Rhythm Reactor pilot — media clock', () => {
       fireFrame(frameTime)
     }
     expect(cueCalls()).toEqual([
-      'Lane 1, in 1.5 seconds.',
-      'Lane 2, in 1.5 seconds.',
+      'Lane 1, in 1.5 seconds; lane 2, in 2.5 seconds.',
     ])
+
+    setAudioTime(2.5)
+    elapsedMs = 2500
+    frameTime += 50
+    fireFrame(frameTime)
+    expect(cueCalls()).toEqual([
+      'Lane 1, in 1.5 seconds; lane 2, in 2.5 seconds.',
+      'Lane 3, in 1.5 seconds; lane 4, in 2.5 seconds.',
+    ])
+  })
+
+  test('coalesces due lanes after a hitch and does not interrupt them for hit feedback', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.RHYTHM_REACTOR} />)
+    fireLayouts(tree)
+    await loadAudio()
+    await press(tree, 'Start game')
+    await drain()
+    const announce = jest.mocked(AccessibilityInfo.announceForAccessibility)
+    announce.mockClear()
+    const now = Date.now()
+    let elapsedMs = 0
+    jest.spyOn(Date, 'now').mockImplementation(() => now + elapsedMs)
+
+    // A delayed frame puts both the 6.0 s and 6.5 s notes inside the cue lead.
+    setAudioTime(5.01)
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(announce).toHaveBeenCalledTimes(1)
+    expect(announce.mock.calls[0][0]).toContain('Lane 1')
+    expect(announce.mock.calls[0][0]).toContain('lane 2')
+    expect(announce.mock.calls[0][0]).toContain('lane 3')
+
+    setAudioTime(5.026)
+    elapsedMs = 16
+    frameTime += 16
+    fireFrame(frameTime)
+    await press(tree, 'Tap lane 4')
+    expect(testText(tree, 'rr-feedback')).toBe('Perfect!')
+    expect(announce).toHaveBeenCalledTimes(1)
+
+    // A newly due note must not immediately interrupt the ongoing cue.
+    setAudioTime(6.01)
+    elapsedMs = 1000
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(announce).toHaveBeenCalledTimes(1)
+
+    setAudioTime(6.6)
+    elapsedMs = 1590
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(announce).toHaveBeenCalledTimes(1)
+
+    setAudioTime(7.01)
+    elapsedMs = 2000
+    frameTime += 16
+    fireFrame(frameTime)
+    expect(announce).toHaveBeenCalledTimes(2)
+    expect(announce.mock.calls[1][0]).toContain('Lane 4')
+    expect(announce.mock.calls[1][0]).toContain('1.5 seconds')
   })
 })
 

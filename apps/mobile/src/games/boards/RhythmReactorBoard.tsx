@@ -101,9 +101,9 @@ const audioStateLabel = (snapshot: RhythmReactorRunSnapshot): string => {
 const calibrationLabel = (calibrationMs: number): string =>
   `Calibration ${calibrationMs >= 0 ? '+' : ''}${calibrationMs} ms`
 
-/** Spoken lead time: each approaching note is announced once when it gets
- *  this close, instead of speaking on every animation frame. */
 const CUE_LEAD_SECONDS = 1.5
+// shortcut: speech may exceed this interval; use cross-platform completion when available.
+const CUE_INTERVAL_MS = 1500
 const UPCOMING_LIMIT = 4
 
 const approachNotes = (state: RhythmReactorState) =>
@@ -202,26 +202,47 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
   const upcoming = upcomingLabel(state)
   const approached = approachNotes(state)
 
-  // One utterance per approaching note: the announcer must never speak on
-  // every animation frame. The ledger is cleared when the run stops so a
-  // Replay re-announces its own chart.
   const announcedNotesRef = useRef<Set<string>>(new Set())
+  const lastCueAtRef = useRef<number | null>(null)
   useEffect(() => {
     if (!running) {
       announcedNotesRef.current.clear()
+      lastCueAtRef.current = null
       return
     }
-    const note = cueNotes(state).find(
+    const now = Date.now()
+    if (
+      lastCueAtRef.current !== null &&
+      now - lastCueAtRef.current < CUE_INTERVAL_MS
+    ) {
+      return
+    }
+    const due = cueNotes(state).filter(
       candidate => !announcedNotesRef.current.has(candidate.id)
     )
-    if (!note) {
+    if (due.length === 0) {
       return
     }
-    announcedNotesRef.current.add(note.id)
+    const notes = state.pendingNotes
+      .filter(
+        note =>
+          !announcedNotesRef.current.has(note.id) &&
+          note.hitTimeSeconds >= state.elapsedSeconds &&
+          note.hitTimeSeconds - state.elapsedSeconds <=
+            CUE_LEAD_SECONDS + CUE_INTERVAL_MS / 1000
+      )
+      .sort((a, b) => a.hitTimeSeconds - b.hitTimeSeconds)
+    notes.forEach(note => announcedNotesRef.current.add(note.id))
+    lastCueAtRef.current = now
     void AccessibilityInfo.announceForAccessibility(
-      `Lane ${note.laneIndex + 1}, in ${spokenSeconds(
-        remainingOf(note, state.elapsedSeconds)
-      )}.`
+      `${notes
+        .map(
+          (note, index) =>
+            `${index === 0 ? 'Lane' : 'lane'} ${note.laneIndex + 1}, in ${spokenSeconds(
+              remainingOf(note, state.elapsedSeconds)
+            )}`
+        )
+        .join('; ')}.`
     )
   }, [running, state])
 
@@ -251,22 +272,8 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
     if (!rhythmGame.getState().isActive) {
       return
     }
-    const result = run.tap(laneIndex)
+    run.tap(laneIndex)
     sync()
-    if (!result.accepted || result.judgment === null) {
-      return
-    }
-    const judgment =
-      result.judgment === 'perfect'
-        ? 'Perfect'
-        : result.judgment === 'good'
-          ? 'Good'
-          : 'Miss'
-    void AccessibilityInfo.announceForAccessibility(
-      `Lane ${laneIndex + 1}: ${judgment}. Combo ${
-        rhythmGame.getState().combo
-      }.`
-    )
   }
 
   const adjustCalibration = (deltaMs: number): void => {
