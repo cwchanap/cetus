@@ -566,20 +566,29 @@ describe('Ice Slide pilot — Daily mode and leaderboard', () => {
     expect(submitScore).not.toHaveBeenCalled()
   })
 
-  test('Daily early Stop never saves and clears the result', async () => {
+  test('Daily early Stop never saves but keeps the local RUN ENDED result', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.ICE_SLIDE} />)
     await press(tree, 'Select mode daily')
     await press(tree, 'Start game')
     clearStage(tree)
-    expect(gameOf(tree).getState().score).toBeGreaterThan(0)
+    const score = gameOf(tree).getState().score
+    expect(score).toBeGreaterThan(0)
+    const runKey = gameOf(tree).getState().runKey
 
     await press(tree, 'Stop run')
-    expect(controllerOf(tree).getGame()).toBeNull()
+    expect(controllerOf(tree).getGame()).not.toBeNull()
     expect(submitScore).not.toHaveBeenCalled()
+    expect(renderedText(tree)).toContain('Run complete')
+    expect(testText(tree, 'result-outcome')).toBe('Run ended')
+    expect(testText(tree, 'final-score')).toBe(String(score))
+    expect(
+      tree.root.findAllByProps({ testID: 'result-save-status' })
+    ).toHaveLength(0)
+
+    // Play again replays the captured Daily run (web retryRun parity).
+    await press(tree, 'Play again')
+    expect(gameOf(tree).getState().runKey).toBe(runKey)
     expect(renderedText(tree)).not.toContain('Run complete')
-    expect(renderedText(tree)).toContain('idle')
-    expect(testText(tree, 'game-time')).toBe('0:00')
-    expect(renderedText(tree)).toContain('Score 0')
   })
 
   test('a committed Daily save refetches the leaderboard once the POST resolves', async () => {
