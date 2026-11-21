@@ -395,6 +395,9 @@ describe('SatelliteSyncGame', () => {
         }
 
         game.beginAim('sat-0')
+        // A second unlock keeps the level open: restoring target-0 must not
+        // complete it, or the clear would reset the combo being checked.
+        game.beginAim('sat-1')
         game.beginAim('sat-2')
         game.aimAtTarget('sat-2', 'target-2')
         game.endAim('sat-2')
@@ -437,6 +440,69 @@ describe('SatelliteSyncGame', () => {
         expect(after.targets[0].lockedBySatId).toBe('sat-0')
         expect(after.combo).toBe(0)
         expect(after.multiplier).toBe(1)
+        game.cleanup()
+    })
+
+    it('restoreAimState clears the level when the restored lock completes it', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        // The drag unlocks target-0; the other targets lock while it is
+        // open, leaving the level one restored lock short of complete.
+        game.beginAim('sat-0')
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+        game.beginAim('sat-2')
+        game.aimAtTarget('sat-2', 'target-2')
+        game.endAim('sat-2')
+        expect(game.getState().targets.some(t => !t.locked)).toBe(true)
+
+        expect(game.restoreAimState(snapshot)).toBe(true)
+        const after = game.getState()
+        expect(after.targets.every(t => t.locked)).toBe(true)
+        // One level clear, one level advance, and no lock award beyond the
+        // three real locks — a restore never scores a new lock.
+        expect(cbs.calls.clear).toHaveLength(1)
+        expect(cbs.calls.clear?.[0]).toBe(1)
+        expect(after.levelIndex).toBe(1)
+        expect(after.status).toBe('playing')
+        expect(cbs.calls.lock).toHaveLength(3)
+        game.cleanup()
+    })
+
+    it('restoreAimState leaves an open level alone when a target stays unlocked', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        game.beginAim('sat-0')
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+
+        expect(game.restoreAimState(snapshot)).toBe(true)
+        const after = game.getState()
+        expect(after.levelIndex).toBe(0)
+        expect(after.status).toBe('playing')
+        expect(cbs.calls.clear).toBeUndefined()
         game.cleanup()
     })
 
