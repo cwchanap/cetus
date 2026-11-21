@@ -423,6 +423,12 @@ export class SatelliteSyncGame {
             this.state.multiplier = snapshot.multiplier
             this.comboRevision += 1
         }
+        if (restoredTarget && this.state.targets.every(t => t.locked)) {
+            // A cancelled drag that restores the last missing lock clears
+            // the level: the same clear path a fresh lock takes (level
+            // bonus only — a restore never scores a new lock).
+            this.handleLevelClear()
+        }
         return true
     }
 
