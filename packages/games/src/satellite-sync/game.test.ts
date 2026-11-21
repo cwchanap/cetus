@@ -708,6 +708,59 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('restoreAimState does not touch an unlocked satellite while the swap is pending', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Flush into level 2 (Spectrum): 4 satellites for 3 targets, so
+        // sat-3 stays unlocked when the others clear the level — the one
+        // completed-set entity the lock check alone cannot guard.
+        solveCurrentLevel(game)
+        game.update(0)
+        expect(game.getState().levelIndex).toBe(1)
+        expect(game.getState().satellites).toHaveLength(4)
+
+        const snapshot = game.captureAimState('sat-3')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+        // A drag on the spare satellite is still open when the other three
+        // lock every target: pendingLevel queues the swap while sat-3's
+        // aim and snap candidate stay live on the completed set.
+        game.beginAim('sat-3')
+        expect(game.aimAtTarget('sat-3', 'target-0')).toBe(true)
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+        game.beginAim('sat-2')
+        game.aimAtTarget('sat-2', 'target-2')
+        game.endAim('sat-2')
+        expect(cbs.calls.clear).toHaveLength(2)
+        expect(cbs.calls.clear?.[1]).toBe(2)
+        const scoreBefore = game.getState().score
+        const liveAim = game.getState().satellites[3].aimAngle
+        const liveSnap = game.getState().satellites[3].snapCandidateId
+
+        // The cancelled-drag rollback lands in the swap window. Returning
+        // false is not enough: without the identity guard, restoreAimState
+        // writes the stale aim/snap onto the completed set before its
+        // state check bails.
+        expect(game.isAimIdentityCurrent(snapshot)).toBe(false)
+        expect(game.restoreAimState(snapshot)).toBe(false)
+        const after = game.getState()
+        expect(after.satellites[3].aimAngle).toBe(liveAim)
+        expect(after.satellites[3].snapCandidateId).toBe(liveSnap)
+        expect(after.targets.every(t => t.locked)).toBe(true)
+        expect(cbs.calls.clear).toHaveLength(2)
+        expect(after.levelIndex).toBe(2)
+        expect(after.score).toBe(scoreBefore)
+        game.cleanup()
+    })
+
     it('aim methods are no-ops for unknown satellite ids', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
