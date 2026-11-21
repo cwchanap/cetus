@@ -248,9 +248,17 @@ export class SatelliteSyncGame {
         }
     }
 
+    /** True while aim input may mutate the current entity set. False
+     *  between a level clear and the update() tick that installs the
+     *  replacement entities, so a stale drag cannot unlock/relock the
+     *  completed set and fire a second clear for a level never played. */
+    private aimMutable(): boolean {
+        return this.state.status === 'playing' && this.pendingLevel === null
+    }
+
     beginAim(satId: string): void {
         const sat = this.findSatellite(satId)
-        if (!sat || this.state.status !== 'playing') {
+        if (!sat || !this.aimMutable()) {
             return
         }
         if (sat.lockedTargetId) {
@@ -260,7 +268,7 @@ export class SatelliteSyncGame {
 
     updateAim(satId: string, worldAngle: number): void {
         const sat = this.findSatellite(satId)
-        if (!sat || this.state.status !== 'playing') {
+        if (!sat || !this.aimMutable()) {
             return
         }
         sat.aimAngle = worldAngle
@@ -277,7 +285,7 @@ export class SatelliteSyncGame {
 
     endAim(satId: string): void {
         const sat = this.findSatellite(satId)
-        if (!sat || this.state.status !== 'playing') {
+        if (!sat || !this.aimMutable()) {
             return
         }
         if (sat.snapCandidateId) {
@@ -342,7 +350,7 @@ export class SatelliteSyncGame {
      *  live run. */
     isAimIdentityCurrent(identity: SatelliteAimIdentity): boolean {
         return (
-            this.state.status === 'playing' &&
+            this.aimMutable() &&
             identity.modelInstanceId === this.modelInstanceId &&
             identity.entityGeneration === this.entityGeneration
         )
@@ -435,10 +443,10 @@ export class SatelliteSyncGame {
     aimAtTarget(satId: string, targetId: string): boolean {
         const sat = this.findSatellite(satId)
         const target = this.state.targets.find(t => t.id === targetId)
-        // Mirror the status guard used by beginAim/updateAim/endAim so a
+        // Mirror the aim guard used by beginAim/updateAim/endAim so a
         // stale snapCandidateId can't produce a false match after the run
-        // ends (won/lost/idle).
-        if (!sat || !target || this.state.status !== 'playing') {
+        // ends (won/lost/idle) or while a level swap is pending.
+        if (!sat || !target || !this.aimMutable()) {
             return false
         }
         const aim = bearing(
