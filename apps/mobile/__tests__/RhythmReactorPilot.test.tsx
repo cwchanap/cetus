@@ -846,10 +846,13 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(game.getState().pendingNotes).toHaveLength(1)
     expect(game.getState().pendingNotes[0].hitTimeSeconds).toBe(57.5)
 
-    // Media runs to the end but no frame callback delivers it before the
-    // independent wall timer completes. The verified media position must
-    // expire the pending note exactly as the missing frame would have.
-    mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration
+    // Media runs out just short of the nominal 60 s mark — the deadline
+    // gate only needs the verified position to reach the final note window,
+    // not an exact-duration report — and no frame callback delivers it
+    // before the independent wall timer completes. The verified media
+    // position must expire the pending note exactly as the missing frame
+    // would have.
+    mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration - 0.1
     await act(async () => {
       jest.advanceTimersByTime(2_200)
       for (let i = 0; i < 10; i += 1) {
