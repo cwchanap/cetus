@@ -140,20 +140,52 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
   // display window, and a reset's new run id drops any overlay it started.
   useEffect(() => {
     let disposed = false
+    let lastRunId = bejeweled.getRunId()
     const pending = new Set<() => void>()
     const wait = (durationMs: number) =>
       new Promise<void>(resolve => {
-        const handle: { timer?: ReturnType<typeof setTimeout> } = {}
+        let remaining = Math.max(
+          FEEDBACK_FLOOR_MS,
+          Math.round(durationMs * FEEDBACK_SCALE)
+        )
+        let timer: ReturnType<typeof setTimeout> | undefined
+        let startedAt = 0
         const finish = () => {
-          clearTimeout(handle.timer)
+          if (timer !== undefined) {
+            clearTimeout(timer)
+            timer = undefined
+          }
+          bejeweled.off('pause', onPause)
+          bejeweled.off('resume', onResume)
           pending.delete(finish)
           resolve()
         }
-        handle.timer = setTimeout(
-          finish,
-          Math.max(FEEDBACK_FLOOR_MS, Math.round(durationMs * FEEDBACK_SCALE))
-        )
+        // The model's continuation guard checks isActive, which stays true
+        // while paused, so these waits freeze with the game the way the web
+        // renderer's animate() loop does — otherwise a swap resolves and the
+        // cascade plays out behind the frozen countdown.
+        const onPause = () => {
+          if (timer === undefined) {
+            return
+          }
+          clearTimeout(timer)
+          timer = undefined
+          remaining = Math.max(0, remaining - (Date.now() - startedAt))
+        }
+        const onResume = () => {
+          if (timer !== undefined) {
+            return
+          }
+          startedAt = Date.now()
+          timer = setTimeout(finish, remaining)
+        }
+        bejeweled.on('pause', onPause)
+        bejeweled.on('resume', onResume)
         pending.add(finish)
+        if (!bejeweled.getState().isPaused) {
+          startedAt = Date.now()
+          timer = setTimeout(finish, remaining)
+        }
       })
     const show = (
       kind: FeedbackKind,
@@ -215,6 +247,15 @@ export function BejeweledBoard({ projected, game }: NativeGameViewProps) {
       setFeedback(current =>
         current !== null && current.runId !== runId ? null : current
       )
+      // A reset while a wait is suspended on pause leaves no resume event
+      // for the new run: settle its pending waits here so the model promise
+      // resolves and its own run check discards the stale continuation.
+      if (runId !== lastRunId) {
+        lastRunId = runId
+        for (const finish of [...pending]) {
+          finish()
+        }
+      }
     }
     bejeweled.on('state-change', onStateChange)
     return () => {

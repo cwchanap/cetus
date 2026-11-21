@@ -581,6 +581,62 @@ describe('Bejeweled pilot — board', () => {
     expect(submitScore).not.toHaveBeenCalled()
   })
 
+  test('pausing mid-animation suspends the swap chain until resume', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.BEJEWELED} />)
+    fireLayouts(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    setGrid(game, VALID_SWAP_GRID())
+    await tapCell(tree, 3, 1)
+    await tapCell(tree, 2, 1)
+    expect(game.getState().isAnimating).toBe(true)
+
+    await press(tree, 'Pause game')
+    expect(game.getState().isPaused).toBe(true)
+    const frozen = cloneGrid(game.getState().grid)
+    const scoreAtPause = game.getState().score
+
+    // Well past the swap and clear display windows: the countdown is
+    // frozen, so the grid and score must be too — the pending animator
+    // waits hold until resume instead of completing behind the pause.
+    await drain(600)
+    expect(game.getState().isAnimating).toBe(true)
+    expect(game.getState().grid).toEqual(frozen)
+    expect(game.getState().score).toBe(scoreAtPause)
+
+    await press(tree, 'Resume game')
+    await waitFor(game, state => !state.isAnimating)
+    expect(game.getState().movesMade).toBe(1)
+    expect(game.getState().score).toBeGreaterThanOrEqual(30)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a reset while paused settles the suspended swap wait', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.BEJEWELED} />)
+    fireLayouts(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    setGrid(game, VALID_SWAP_GRID())
+    await tapCell(tree, 3, 1)
+    await tapCell(tree, 2, 1)
+    expect(game.getState().isAnimating).toBe(true)
+
+    await press(tree, 'Pause game')
+    await press(tree, 'Reset game')
+    expect(game.getState().isAnimating).toBe(false)
+    expect(game.getState().movesMade).toBe(0)
+
+    // The suspended wait settles on the run change instead of hanging;
+    // letting it resolve must not commit the stale run's swap.
+    await drain(400)
+    expect(game.getState().isAnimating).toBe(false)
+    expect(game.getState().movesMade).toBe(0)
+    expect(game.getState().score).toBe(0)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
   test('fits the board to available height and scrolls when space is tight', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.BEJEWELED} />)
     fireLayouts(tree)
