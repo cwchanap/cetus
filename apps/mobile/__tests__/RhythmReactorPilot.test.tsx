@@ -815,7 +815,55 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(testText(tree, 'result-save-status')).toBe('Score saved')
   })
 
-  test('does not post when frame callbacks are absent at timer end', async () => {
+  test('keeps the earned score when a pending final miss resolves only in media time', async () => {
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
+    fireLayouts(tree)
+    await loadAudioWithFakeTimers()
+    const game = createdGames[0]
+    await startWithFakeTimers(tree)
+    expect(game.getState().isActive).toBe(true)
+
+    // Play through the chart in 100 ms frames. At 57.0 s the penultimate
+    // note is inside its perfect window; the 57.5 s note stays pending.
+    for (let step = 1; step <= 570; step += 1) {
+      mockAudioPlayer.currentTime = step / 10
+      await runFakeFrame(100)
+    }
+    expect(game.getState().elapsedSeconds).toBeCloseTo(57, 5)
+    await press(tree, 'Tap lane 2')
+    expect(game.getState().perfectHits).toBeGreaterThanOrEqual(1)
+    const earnedScore = game.getState().score
+    expect(earnedScore).toBeGreaterThan(0)
+
+    // Frames keep arriving until 57.8 s, leaving the final note pending
+    // short of its 57.9 s miss-window boundary.
+    for (let step = 571; step <= 578; step += 1) {
+      mockAudioPlayer.currentTime = step / 10
+      await runFakeFrame(100)
+    }
+    expect(game.getState().pendingNotes).toHaveLength(1)
+    expect(game.getState().pendingNotes[0].hitTimeSeconds).toBe(57.5)
+
+    // Media runs to the end but no frame callback delivers it before the
+    // independent wall timer completes. The verified media position must
+    // expire the pending note exactly as the missing frame would have.
+    mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration
+    await act(async () => {
+      jest.advanceTimersByTime(2_200)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
+
+    expect(game.getState().isGameOver).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(testText(tree, 'final-score')).toBe(String(earnedScore))
+    expect(testText(tree, 'result-save-status')).toBe('Score saved')
+  })
+
+  test('completes a zero-score run whose media ends without frame callbacks', async () => {
     const tree = await renderWithFakeTimers(
       <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
     )
@@ -826,8 +874,51 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(game.getState().isActive).toBe(true)
 
     // Media reaches the end, but no frame callback ever delivers it to the
-    // model before the independent 60 s wall timer completes.
+    // model before the independent 60 s wall timer completes. Verified
+    // media time resolves the untouched chart the same way the missing
+    // frames would have: every note expires, a score of 0 posts once.
     mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration
+    await act(async () => {
+      jest.advanceTimersByTime(60_000)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
+
+    expect(game.getState().isGameOver).toBe(true)
+    expect(game.getState().pendingNotes).toHaveLength(0)
+    expect(game.getState().misses).toBeGreaterThan(0)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(testText(tree, 'final-score')).toBe('0')
+    expect(testText(tree, 'result-save-status')).toBe('Score saved')
+
+    // A late frame after the finish cannot revive the run or post again.
+    if (rafQueue.length > 0) {
+      act(() => {
+        const entry = rafQueue.shift()
+        frameTime += 16
+        entry?.cb(frameTime)
+      })
+    }
+    expect(game.getState().isActive).toBe(false)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+
+  test('aborts a run whose media stalls short of the final note window', async () => {
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
+    fireLayouts(tree)
+    await loadAudioWithFakeTimers()
+    const game = createdGames[0]
+    await startWithFakeTimers(tree)
+    expect(game.getState().isActive).toBe(true)
+
+    // Playback stalls at 30 s with no frame callbacks: media never reached
+    // the final note window, so the wall-timer end aborts instead of
+    // posting a completion.
+    mockAudioPlayer.currentTime = 30
+    mockAudioPlayer.playing = false
     await act(async () => {
       jest.advanceTimersByTime(60_000)
       for (let i = 0; i < 10; i += 1) {
@@ -842,17 +933,6 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(testText(tree, 'rr-play-error')).toBe(
       'Playback was interrupted. Press Start to try again.'
     )
-    expect(submitScore).not.toHaveBeenCalled()
-
-    // A late frame after the abort cannot revive the run or post.
-    if (rafQueue.length > 0) {
-      act(() => {
-        const entry = rafQueue.shift()
-        frameTime += 16
-        entry?.cb(frameTime)
-      })
-    }
-    expect(game.getState().isActive).toBe(false)
     expect(submitScore).not.toHaveBeenCalled()
   })
 
