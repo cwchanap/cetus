@@ -564,6 +564,7 @@ describe('SatelliteSyncGame', () => {
         for (let lvl = 0; lvl < 4; lvl++) {
             solveCurrentLevel(game)
         }
+        game.update(0)
         const state = game.getState()
         const sat = state.satellites[0]
         const target = state.targets[0]
@@ -626,6 +627,84 @@ describe('SatelliteSyncGame', () => {
         game.update(0)
         expect(game.getState().targets.map(t => t.color)).toEqual(colorsBefore)
         expect(game.getState().status).toBe('idle')
+        game.cleanup()
+    })
+
+    it('aim input cannot mutate a cleared level while its swap is pending', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Clear level 1 -> pendingLevel queues the swap but the completed
+        // (all-locked) entities stay on screen until update() installs them.
+        solveCurrentLevel(game)
+        expect(game.getState().levelIndex).toBe(1)
+        expect(game.getState().targets.every(t => t.locked)).toBe(true)
+        const scoreBefore = game.getState().score
+
+        const sat = game.getState().satellites[0]
+        const targetId = sat.lockedTargetId!
+        const aimBefore = sat.aimAngle
+        // A drag arriving before the entity swap must not unlock, re-aim
+        // or relock the completed set — a relock would fire a second clear
+        // and skip a level never played.
+        game.beginAim(sat.id)
+        game.updateAim(sat.id, 42)
+        expect(game.aimAtTarget(sat.id, targetId)).toBe(false)
+        game.endAim(sat.id)
+        expect(game.isAimIdentityCurrent(game.getAimIdentity())).toBe(false)
+
+        const after = game.getState()
+        expect(after.satellites[0].lockedTargetId).toBe(targetId)
+        expect(after.satellites[0].aimAngle).toBe(aimBefore)
+        expect(after.satellites[0].snapCandidateId).toBeNull()
+        expect(after.targets.every(t => t.locked)).toBe(true)
+        expect(cbs.calls.clear).toHaveLength(1)
+        expect(after.levelIndex).toBe(1)
+        expect(after.score).toBe(scoreBefore)
+
+        // Aim input resumes once update() installs the next entity set.
+        game.update(0)
+        expect(game.isAimIdentityCurrent(game.getAimIdentity())).toBe(true)
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        expect(game.getState().targets[0].locked).toBe(true)
+        game.cleanup()
+    })
+
+    it('restoreAimState cannot complete a second clear while the swap is pending', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+        // Finish the level with the other satellites: pendingLevel queues
+        // the swap while the completed entities stay on screen.
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+        game.beginAim('sat-2')
+        game.aimAtTarget('sat-2', 'target-2')
+        game.endAim('sat-2')
+        expect(cbs.calls.clear).toHaveLength(1)
+
+        // A cancelled-drag rollback landing in the swap window must not
+        // touch the completed entities or award a second clear.
+        expect(game.isAimIdentityCurrent(snapshot)).toBe(false)
+        expect(game.isAimStateCurrent(snapshot)).toBe(false)
+        game.beginAim('sat-0')
+        expect(game.restoreAimState(snapshot)).toBe(false)
+        const after = game.getState()
+        expect(after.targets.every(t => t.locked)).toBe(true)
+        expect(after.satellites[0].lockedTargetId).toBe('target-0')
+        expect(cbs.calls.clear).toHaveLength(1)
+        expect(after.levelIndex).toBe(1)
         game.cleanup()
     })
 
