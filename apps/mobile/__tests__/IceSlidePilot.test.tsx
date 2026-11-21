@@ -591,6 +591,31 @@ describe('Ice Slide pilot — Daily mode and leaderboard', () => {
     expect(renderedText(tree)).not.toContain('Run complete')
   })
 
+  test('re-selecting Daily on the result screen returns to Start for a fresh run', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.ICE_SLIDE} />)
+    await press(tree, 'Select mode daily')
+    await press(tree, 'Start game')
+    clearStage(tree)
+    const stopped = gameOf(tree)
+    await press(tree, 'Stop run')
+    expect(renderedText(tree)).toContain('Run complete')
+
+    // The already-selected Daily mode button is the in-screen way back
+    // to Start (web Change Mode parity) — no throwaway switch through
+    // another mode and no leaving the screen.
+    await press(tree, 'Select mode daily')
+    expect(renderedText(tree)).not.toContain('Run complete')
+    expect(controllerOf(tree).getGame()).toBeNull()
+
+    await press(tree, 'Start game')
+    expect(gameOf(tree)).not.toBe(stopped)
+    expect(gameOf(tree).getState()).toMatchObject({
+      mode: 'daily',
+      status: 'playing',
+      moves: 0,
+    })
+  })
+
   test('a committed Daily save refetches the leaderboard once the POST resolves', async () => {
     const dateKey = toIceSlideUtcDateKey(new Date())
     const competitionKey = `ice-slide:daily:${dateKey}:g1:r1`

@@ -233,9 +233,14 @@ export class IceSlideController {
         }
     }
 
-    /** Pre-run only: a live run keeps the mode it was built with. */
+    /** Pre-run only: a live run keeps the mode it was built with.
+     *  Re-selecting the current mode is a no-op only before any run;
+     *  over a finished scene it still resets to idle so a fresh Daily
+     *  or Expedition can be started without a throwaway mode switch
+     *  (web Change Mode parity — Play again alone only replays the
+     *  retained run, even once its Daily date has passed). */
     selectMode(mode: IceSlidePlayableMode): void {
-        if (this.isRunning() || mode === this.mode) {
+        if (this.isRunning() || (mode === this.mode && this.game === null)) {
             return
         }
         this.mode = mode
