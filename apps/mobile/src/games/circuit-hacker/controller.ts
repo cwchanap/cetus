@@ -1,5 +1,4 @@
 import type { HandleSessionHandlers } from '@cetus/app-core'
-import type { BaseGameStats } from '@cetus/games'
 import { CircuitHackerGame } from '@cetus/games/circuit-hacker/game'
 import type {
     CircuitHackerState,
@@ -168,7 +167,11 @@ export class CircuitHackerController {
                     this.publish()
                     this.deps.results.finishAndSave({
                         score,
-                        stats: stats as unknown as BaseGameStats,
+                        stats: {
+                            ...stats,
+                            timeElapsed: duration - stats.secondsRemaining,
+                            gameCompleted: stats.solved,
+                        },
                         gameData: {
                             difficulty: stats.difficulty,
                             secondsRemaining: stats.secondsRemaining,
@@ -182,7 +185,11 @@ export class CircuitHackerController {
                     // Timeout/manual failure: honest local result, no score POST.
                     this.deps.results.finishLocal({
                         score: stats.finalScore,
-                        stats: stats as unknown as BaseGameStats,
+                        stats: {
+                            ...stats,
+                            timeElapsed: duration - stats.secondsRemaining,
+                            gameCompleted: stats.solved,
+                        },
                     })
                 },
             }
