@@ -310,6 +310,49 @@ describe('Ice Slide controller — mode binding and start', () => {
         )
         controller.cleanup()
     })
+
+    test('re-selecting the finished Daily mode returns to Start and binds today', () => {
+        let now = new Date('2026-08-12T23:59:59Z')
+        const { controller, results } = createController({
+            now: () => now,
+        })
+        controller.selectMode('daily')
+        controller.start()
+        clearDailyFixture(gameOf(controller))
+        expect(results.finishAndSave).toHaveBeenCalledTimes(1)
+
+        // Midnight passes on the result screen: re-selecting the
+        // already-selected Daily mode is the separately initiated new
+        // Daily — it clears the finished scene like any mode pick does,
+        // without a throwaway switch through another mode.
+        now = new Date('2026-08-13T00:00:01Z')
+        controller.selectMode('daily')
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(controller.getGame()).toBeNull()
+        expect(controller.getProjection()).toMatchObject({
+            mode: 'daily',
+            status: 'idle',
+            dailyDateKey: '2026-08-13',
+        })
+
+        controller.start()
+        expect(gameOf(controller).getState().runKey).toBe(
+            'ice-slide:daily:2026-08-13:g1:r1'
+        )
+        controller.cleanup()
+    })
+
+    test('re-selecting the current mode before any run is a no-op', () => {
+        const { controller, handlers, results } = createController()
+        controller.selectMode('daily')
+        const calls = handlers.setProjected.mock.calls.length
+
+        controller.selectMode('daily')
+        expect(handlers.setProjected.mock.calls.length).toBe(calls)
+        expect(results.idle).not.toHaveBeenCalled()
+        expect(controller.getProjection().mode).toBe('daily')
+        controller.cleanup()
+    })
 })
 
 describe('Ice Slide controller — Expedition seeds and routes', () => {
