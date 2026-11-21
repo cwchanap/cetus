@@ -9,6 +9,7 @@ afterEach(() => {
     for (const controller of controllers.splice(0)) {
         controller.cleanup()
     }
+    jest.useRealTimers()
 })
 
 const makeResults = () => ({
@@ -77,25 +78,33 @@ const solveBoard = (controller: CircuitHackerController) => {
 
 describe('CircuitHackerController result stats', () => {
     test('a solve finishes with populated BaseGameStats fields', () => {
+        // The model clock runs on a 1 s interval: five ticks keep
+        // timeElapsed nonzero so the assertion cannot pass on a zeroed report.
+        jest.useFakeTimers()
         const { controller, results } = createController()
         controller.start()
+        jest.advanceTimersByTime(5_000)
         solveBoard(controller)
 
         expect(results.finishAndSave).toHaveBeenCalledTimes(1)
         const finish = results.finishAndSave.mock.calls[0][0]
         const stats = gameOf(controller).getStats()
+        expect(stats.secondsRemaining).toBe(
+            DIFFICULTY_CONFIGS.easy.duration - 5
+        )
         expect(finish.stats).toMatchObject({
             finalScore: stats.finalScore,
-            timeElapsed:
-                DIFFICULTY_CONFIGS.easy.duration - stats.secondsRemaining,
             gameCompleted: true,
             solved: true,
         })
+        expect(finish.stats.timeElapsed).toBe(5)
     })
 
     test('a manual stop finishes locally with populated BaseGameStats fields', () => {
+        jest.useFakeTimers()
         const { controller, results } = createController()
         controller.start()
+        jest.advanceTimersByTime(5_000)
         controller.stop()
 
         expect(results.finishLocal).toHaveBeenCalledTimes(1)
@@ -104,9 +113,10 @@ describe('CircuitHackerController result stats', () => {
             gameCompleted: false,
             solved: false,
         })
-        expect(finish.stats.timeElapsed).toBe(
-            DIFFICULTY_CONFIGS.easy.duration - finish.stats.secondsRemaining
+        expect(finish.stats.secondsRemaining).toBe(
+            DIFFICULTY_CONFIGS.easy.duration - 5
         )
+        expect(finish.stats.timeElapsed).toBe(5)
         expect(results.finishAndSave).not.toHaveBeenCalled()
     })
 })
