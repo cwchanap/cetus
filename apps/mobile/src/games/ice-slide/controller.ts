@@ -111,20 +111,25 @@ export interface IceSlideControllerOptions {
  * run, mapped onto the shared handle session/result path; the zero-argument
  * chrome Start/Replay reads the pre-run mode selection here.
  *
- * Mode binding: Campaign replays `game.start()`; Daily captures the UTC date
- * at every Start (Play again after midnight starts the new daily, never
- * yesterday's run); Expedition builds
- * `createIceSlideExpeditionRunDefinition` from a seed. The last finished
- * Expedition run is retained so Play again replays the same seed, while the
- * board-local New Expedition draws a fresh one.
+ * Mode binding: Campaign replays `game.start()`; Daily captures the UTC
+ * date at a fresh Start and retains the materialized run so Play again
+ * replays the same runKey/competitionKey even across UTC midnight (web
+ * `retryRun` parity — only a separately initiated new Daily binds
+ * today); Expedition builds `createIceSlideExpeditionRunDefinition`
+ * from a seed. The last finished Expedition run is retained so Play
+ * again replays the same seed, while the board-local New Expedition
+ * draws a fresh one.
  *
  * `undo()`, `resetLevel()`, `chooseExpeditionRoute()` and `stop()` emit no
  * model callbacks, so every wrapper republishes the copied scene and the
  * stabilized score/time HUD synchronously. The one shared
  * `iceSlideScoreSubmission` policy decides whether a Stop or win POSTs:
- * Daily early stops and already-stopped runs never save, returned null
- * stops go to `onIdle()` with a reset HUD, and Campaign/Expedition early
- * stops save only with a positive score.
+ * Daily early stops and already-stopped runs never save, a non-saving
+ * Stop on a live Daily/Expedition run ends it with a local no-save
+ * result (web `RUN ENDED`), `onIdle()` with a reset HUD is only for a
+ * Stop that shows no result (an already-ended run or a zero-score
+ * Campaign), and Campaign/Expedition early stops save only with a
+ * positive score.
  */
 export class IceSlideController {
     private game: IceSlideGame | null = null
@@ -256,12 +261,18 @@ export class IceSlideController {
         let run: IceSlideRunDefinition | undefined
         try {
             if (mode === 'daily') {
-                // Daily identity is bound at EVERY Start and frozen for that
-                // run: a Play again after midnight starts the new UTC daily,
-                // never yesterday's retained definition.
-                this.retainedRun = null
-                this.dailyDateKey = toIceSlideUtcDateKey(this.now())
-                run = createIceSlideDailyRunDefinition(this.dailyDateKey)
+                // A finished Daily's materialized run is retained for
+                // replay: Play again reuses the original UTC date/runKey
+                // (and leaderboard competitionKey) even across midnight,
+                // matching web `retryRun`. Only a separately initiated
+                // new Daily binds today's UTC date.
+                if (this.ended && this.retainedRun?.mode === 'daily') {
+                    run = cloneIceSlideRunDefinition(this.retainedRun)
+                } else {
+                    this.dailyDateKey = toIceSlideUtcDateKey(this.now())
+                    run = createIceSlideDailyRunDefinition(this.dailyDateKey)
+                    this.retainedRun = cloneIceSlideRunDefinition(run)
+                }
             } else if (mode === 'expedition') {
                 if (this.ended && this.retainedRun?.mode === 'expedition') {
                     run = cloneIceSlideRunDefinition(this.retainedRun)
@@ -334,7 +345,8 @@ export class IceSlideController {
         this.start()
     }
 
-    /** Board-local Stop. The shared policy decides save vs idle. */
+    /** Board-local Stop: the shared policy decides save, local result
+     *  or idle. */
     stop(): void {
         if (!this.game) {
             return
@@ -372,11 +384,12 @@ export class IceSlideController {
             return
         }
         const state = game.getState()
+        const wasPlaying = state.status === 'playing'
         const submission = iceSlideScoreSubmission({
             score: state.score,
             gameData: game.getGameData(),
             reason,
-            wasPlaying: state.status === 'playing',
+            wasPlaying,
         })
         if (reason === 'stop') {
             // The model fires nothing on stop; end the timer here.
@@ -416,11 +429,25 @@ export class IceSlideController {
                     gameCompleted: true,
                 } satisfies BaseGameStats,
             })
+        } else if (wasPlaying && state.mode !== 'campaign') {
+            // A non-saving Stop on a live Daily/Expedition run still ends
+            // it with the local RUN ENDED result like web — no saveStatus,
+            // and the stopped scene plus its retained run stay for Play
+            // again.
+            this.ended = true
+            this.deps.results.finishLocal({
+                score: state.score,
+                stats: {
+                    finalScore: state.score,
+                    timeElapsed: state.elapsedSeconds,
+                    gameCompleted: false,
+                } satisfies BaseGameStats,
+            })
         } else {
-            // Non-saving Stop (Daily early stop, zero score, already
-            // stopped): back to the pre-start UI with a cleared result.
-            // No replay is offered, so the retained run/seed and frozen
-            // Daily date key are dropped too.
+            // A Stop that shows no result (an already-ended run or a
+            // zero-score Campaign): back to the pre-start UI with a
+            // cleared result. No replay is offered, so the retained
+            // run/seed and frozen Daily date key are dropped too.
             this.ended = false
             this.retainedRun = null
             this.dailyDateKey = null

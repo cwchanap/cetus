@@ -203,11 +203,14 @@ describe('Ice Slide controller — mode binding and start', () => {
         expect(controller.getMode()).toBe('daily')
         expect(controller.getProjection().mode).toBe('daily')
 
-        // Daily early stop idles; a mode change then clears the board.
+        // A Daily early stop keeps the stopped board with a local
+        // result; a mode change then clears it.
         controller.stop()
-        expect(controller.getGame()).toBeNull()
-        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(results.finishLocal).toHaveBeenCalledTimes(1)
+        expect(results.idle).not.toHaveBeenCalled()
+        expect(controller.getGame()).not.toBeNull()
         controller.selectMode('campaign')
+        expect(results.idle).toHaveBeenCalledTimes(1)
         expect(controller.getProjection()).toMatchObject({
             mode: 'campaign',
             status: 'idle',
@@ -217,7 +220,7 @@ describe('Ice Slide controller — mode binding and start', () => {
         controller.cleanup()
     })
 
-    test('Daily binds the UTC date at every Start, including Play again after midnight', () => {
+    test('Daily Play again replays the captured run across UTC midnight', () => {
         let now = new Date('2026-08-12T23:59:59Z')
         const { controller, handlers, results } = createController({
             now: () => now,
@@ -254,23 +257,40 @@ describe('Ice Slide controller — mode binding and start', () => {
             expect.objectContaining({ dailySaves: 1 })
         )
 
-        // Midnight passes while the result sits on screen: Play again is a
-        // NEW Start, so it binds the new UTC daily (yesterday's run is not
-        // retained for Daily).
+        // Midnight passes while the result sits on screen: Play again
+        // replays the captured Daily run — the same UTC date/runKey and
+        // leaderboard competition key (web `retryRun` parity), never the
+        // new day's puzzle.
         now = new Date('2026-08-13T00:00:01Z')
         controller.start()
         expect(gameOf(controller).getState().runKey).toBe(
-            'ice-slide:daily:2026-08-13:g1:r1'
+            'ice-slide:daily:2026-08-12:g1:r1'
         )
-        expect(controller.getProjection().dailyDateKey).toBe('2026-08-13')
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-12')
 
-        // A Daily early stop never saves; if midnight passed before or while
-        // returning to idle, the idle projection immediately shows the new
-        // UTC date instead of the stopped run's date.
+        // A Daily early Stop never saves; it keeps the stopped board with
+        // a local no-save result, and Play again still replays the same
+        // captured run.
         now = new Date('2026-08-14T00:00:05Z')
         controller.stop()
         expect(results.finishAndSave).toHaveBeenCalledTimes(1)
-        expect(results.idle).toHaveBeenCalled()
+        expect(results.finishLocal).toHaveBeenCalledTimes(1)
+        expect(results.idle).not.toHaveBeenCalled()
+        expect(gameOf(controller).getState().status).toBe('idle')
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-12')
+        controller.start()
+        expect(gameOf(controller).getState().runKey).toBe(
+            'ice-slide:daily:2026-08-12:g1:r1'
+        )
+
+        // A Stop on an already-stopped run shows no result: it idles,
+        // drops the retained run and the idle board follows today's UTC
+        // date again.
+        controller.stop()
+        expect(results.finishLocal).toHaveBeenCalledTimes(2)
+        controller.stop()
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(controller.getGame()).toBeNull()
         expect(controller.getProjection().dailyDateKey).toBe('2026-08-14')
 
         // If midnight passes while already idle in Daily mode,
@@ -283,6 +303,7 @@ describe('Ice Slide controller — mode binding and start', () => {
         )
         expect(controller.syncIdleDailyDate()).toBe(false)
 
+        // A separately initiated new Daily binds today's UTC date.
         controller.start()
         expect(gameOf(controller).getState().runKey).toBe(
             'ice-slide:daily:2026-08-15:g1:r1'
@@ -460,6 +481,60 @@ describe('Ice Slide controller — no-callback actions refresh the HUD', () => {
                 canMove: false,
             })
         )
+        controller.cleanup()
+    })
+
+    test('a positive-score Daily stop shows a local result and never saves', () => {
+        const { controller, results } = createController({
+            now: () => new Date('2026-08-12T12:00:00Z'),
+        })
+        controller.selectMode('daily')
+        controller.start()
+        const game = gameOf(controller)
+        clearStage(game)
+        const score = game.getState().score
+        expect(score).toBeGreaterThan(0)
+
+        controller.stop()
+        expect(results.finishAndSave).not.toHaveBeenCalled()
+        expect(results.finishLocal).toHaveBeenCalledTimes(1)
+        expect(results.finishLocal).toHaveBeenCalledWith({
+            score,
+            stats: expect.objectContaining({
+                finalScore: score,
+                gameCompleted: false,
+            }),
+        })
+        expect(results.idle).not.toHaveBeenCalled()
+        // The stopped board and its frozen Daily date stay for replay.
+        expect(controller.getGame()).not.toBeNull()
+        expect(game.getState().status).toBe('idle')
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-12')
+        controller.cleanup()
+    })
+
+    test('a zero-score Expedition stop shows a local result and keeps its seed for replay', () => {
+        const { controller, results } = createController({}, [SEED_A])
+        controller.selectMode('expedition')
+        controller.start()
+        const firstRunKey = gameOf(controller).getState().runKey
+
+        controller.stop()
+        expect(results.finishAndSave).not.toHaveBeenCalled()
+        expect(results.finishLocal).toHaveBeenCalledTimes(1)
+        expect(results.finishLocal).toHaveBeenCalledWith({
+            score: 0,
+            stats: expect.objectContaining({
+                finalScore: 0,
+                gameCompleted: false,
+            }),
+        })
+        expect(results.idle).not.toHaveBeenCalled()
+        expect(controller.getProjection().seed).toBe(SEED_A)
+
+        controller.start()
+        expect(gameOf(controller).getState().runKey).toBe(firstRunKey)
+        expect(controller.getProjection().seed).toBe(SEED_A)
         controller.cleanup()
     })
 
