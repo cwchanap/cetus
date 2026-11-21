@@ -61,6 +61,12 @@ export const planRhythmReactorCue = (
     )
     const notes = windowed.slice(0, UPCOMING_LIMIT)
     const nextOmitted = windowed[UPCOMING_LIMIT]
+    // A shortened hold can let the next cue interrupt this batch's tail
+    // phrases, but every batched note hits at or before nextOmitted — so a
+    // cut phrase only ever describes a note within the notice margin of
+    // its hit, with no usable lead left. Shrinking the batch would not
+    // help: the dropped note just becomes an earlier nextOmitted with a
+    // tighter deadline.
     const holdMs = Math.min(
         cueDurationMs(notes.length),
         nextOmitted === undefined
