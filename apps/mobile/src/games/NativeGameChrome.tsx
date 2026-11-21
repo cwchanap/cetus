@@ -7,16 +7,12 @@ import type {
   GameSessionSnapshot,
 } from '@cetus/app-core'
 import { formatTime } from '@cetus/games/shared/utils'
-import type { ChallengeUpdates } from '@cetus/games'
-import type { AchievementNotification } from '@cetus/shared/achievements'
 
 import type { NativeGameProjection } from './registry'
+import type { NativeRewardBanner } from './rewards'
 
 /** Latest committed reward delivery shown in one mounted-account banner. */
-export interface NativeRewardBanner {
-  achievements?: AchievementNotification[]
-  challenges?: ChallengeUpdates
-}
+export type { NativeRewardBanner } from './rewards'
 
 export interface NativeGameChromeProps {
   snapshot: GameSessionSnapshot<NativeGameProjection>

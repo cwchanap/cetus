@@ -54,6 +54,15 @@ jest.mock('@cetus/app-core', () => {
       }
       return session
     },
+    createHandleSession: (config: never) => {
+      const bundle = actual.createHandleSession(config)
+      const dispose = bundle.session.dispose.bind(bundle.session)
+      ;(bundle.session as { dispose: () => void }).dispose = () => {
+        mockCleanupOrder.push('handle-session-disposed')
+        dispose()
+      }
+      return bundle
+    },
   }
 })
 
@@ -61,10 +70,17 @@ import * as mockApiModule from '../src/test/mockApiModule'
 import { api, createScoreSubmitter } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import {
+  createBaseGameRuntime,
+  createHandleGameRuntime,
+} from '../src/games/runtime'
+import {
   NATIVE_GAMES,
   type NativeGameHostDeps,
   type NativeGamePort,
   type NativeGameViewProps,
+  type NativeHandleBindingContext,
+  type NativeHandleGameViewProps,
+  type NativeHandlePort,
 } from '../src/games/registry'
 
 const submitScore = jest.mocked(api.submitScore)
@@ -1189,5 +1205,280 @@ describe('NativeGameHost — app background policy', () => {
     } finally {
       NATIVE_GAMES[GameID.QUICK_MATH] = original
     }
+  })
+})
+
+// --- handle-variant fixture: same host, same chrome, same submitter ---------
+
+let capturedHandleContext: NativeHandleBindingContext | undefined
+let capturedHandleBinding: unknown
+const handleTeardown: string[] = []
+
+const HandleBoardView = ({ projected }: NativeHandleGameViewProps) => (
+  <Text testID="handle-board">
+    {(projected.board as number[] | undefined)?.join(',') ?? ''}
+  </Text>
+)
+
+const handlePort: NativeHandlePort = {
+  gameId: GameID.CIRCUIT_HACKER,
+  initialSnapshot: {
+    status: 'idle',
+    score: 0,
+    timeRemaining: 120,
+    projected: { board: [1, 2, 3] },
+    result: null,
+  },
+  createBinding(context) {
+    capturedHandleContext = context
+    capturedHandleBinding = {
+      start: () => context.results.beginRun(120),
+      cleanup: () => handleTeardown.push('binding-cleanup'),
+    }
+    return capturedHandleBinding as { start: () => void; cleanup: () => void }
+  },
+  resultOutcomeLabel: result =>
+    (result.stats as { outcome?: string }).outcome ?? null,
+  view: HandleBoardView,
+}
+
+describe('NativeGameHost — handle variant shares the one host', () => {
+  const original = NATIVE_GAMES[GameID.CIRCUIT_HACKER]
+
+  beforeAll(() => {
+    NATIVE_GAMES[GameID.CIRCUIT_HACKER] = { handlePort }
+  })
+  afterAll(() => {
+    NATIVE_GAMES[GameID.CIRCUIT_HACKER] = original
+  })
+  beforeEach(() => {
+    capturedHandleContext = undefined
+    capturedHandleBinding = undefined
+    handleTeardown.length = 0
+  })
+
+  test('binds ONE identity-bound submitter, starts through the binding and renders its board', async () => {
+    submitScore.mockResolvedValue({ success: true })
+    const tree = await render(
+      <NativeGameHost gameId={GameID.CIRCUIT_HACKER} settledUserId="user-h" />
+    )
+
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(1)
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledWith('user-h')
+    expect(
+      tree.root.findByProps({ testID: 'handle-board' }).props.children
+    ).toBe('1,2,3')
+    expect(tree.root.findByType(HandleBoardView).props.binding).toBe(
+      capturedHandleBinding
+    )
+    // No fabricated Pause for a model with no pause API.
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Pause game' })
+    ).toHaveLength(0)
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Reset game' })
+    ).toHaveLength(0)
+
+    await press(tree, 'Start game')
+    expect(tree.root.findByProps({ testID: 'handle-board' })).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Stop run' })
+    ).toHaveLength(0)
+
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+
+  test('a handle score finish uses the same pending/saved chrome and one reward banner', async () => {
+    submitScore.mockResolvedValue({
+      success: true,
+      newAchievements: [
+        {
+          id: 'handle-ach',
+          name: 'Handle Hero',
+          description: 'd',
+          icon: '🔌',
+          rarity: AchievementRarity.RARE,
+        },
+      ],
+    })
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    await press(tree, 'Start game')
+
+    const stats = { finalScore: 42, timeElapsed: 1, gameCompleted: true }
+    await act(async () => {
+      capturedHandleContext?.results.finishAndSave({
+        score: 42,
+        stats,
+        gameData: { solved: true },
+      })
+    })
+    await drain()
+
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(submitScore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameId: GameID.CIRCUIT_HACKER,
+        score: 42,
+        platform: Platform.OS,
+        gameData: { solved: true },
+      })
+    )
+    expect(renderedText(tree)).toContain('Score saved')
+    expect(renderedText(tree).match(/Handle Hero/g)).toHaveLength(1)
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Play again' })
+    ).toBeTruthy()
+  })
+
+  test('handle teardown disposes the session then cleans the binding', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    await press(tree, 'Start game')
+
+    await act(async () => {
+      tree.unmount()
+    })
+
+    expect(mockCleanupOrder).toEqual(['handle-session-disposed'])
+    expect(handleTeardown).toEqual(['binding-cleanup'])
+  })
+
+  test('a late same-account handle save never overwrites the new run but forwards its awards once', async () => {
+    let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    await press(tree, 'Start game')
+
+    await act(async () => {
+      capturedHandleContext?.results.finishAndSave({
+        score: 42,
+        stats: { finalScore: 42, timeElapsed: 1, gameCompleted: true },
+        gameData: { solved: true },
+      })
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Saving score…')
+
+    // Replay starts the next run while the old save is in flight.
+    await press(tree, 'Play again')
+    expect(renderedText(tree)).not.toContain('Saving score…')
+
+    await act(async () => {
+      releaseSave?.({
+        success: true,
+        newAchievements: [
+          {
+            id: 'late-handle',
+            name: 'Late Handle',
+            description: 'd',
+            icon: '⚡',
+            rarity: AchievementRarity.COMMON,
+          },
+        ],
+      })
+    })
+    await drain()
+
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('Score saved')
+    expect(rendered).not.toContain('Run complete')
+    expect(rendered.match(/Late Handle/g)).toHaveLength(1)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('NativeGameHost — runtime producers', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  test('both producers dispose idempotently: cleanup runs exactly once', () => {
+    const deps = {
+      submitScore: async () => ({ success: true as const }),
+      platform: 'ios' as const,
+    }
+    const destroy = jest.spyOn(TestNativeGame.prototype, 'destroy')
+    const baseRuntime = createBaseGameRuntime(testPort, deps)
+    baseRuntime.dispose()
+    baseRuntime.dispose()
+    expect(destroy).toHaveBeenCalledTimes(1)
+
+    const cleanup = jest.fn()
+    const handleRuntime = createHandleGameRuntime(
+      {
+        ...handlePort,
+        createBinding: () => ({ start: () => {}, cleanup }),
+      },
+      deps
+    )
+    handleRuntime.dispose()
+    handleRuntime.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('NativeGameHost — producer setup rollback', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  test('a throwing projector destroys the already-created game exactly once', () => {
+    const destroy = jest.spyOn(TestNativeGame.prototype, 'destroy')
+    const brokenPort: NativeGamePort = {
+      ...testPort,
+      createProjector: () => {
+        throw new Error('projector boom')
+      },
+    }
+
+    expect(() =>
+      createBaseGameRuntime(brokenPort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('projector boom')
+    expect(createdGames).toHaveLength(1)
+    expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  test('a throwing initial projection (inside the session) also rolls the game back', () => {
+    const destroy = jest.spyOn(TestNativeGame.prototype, 'destroy')
+    const brokenPort: NativeGamePort = {
+      ...testPort,
+      project: () => {
+        throw new Error('project boom')
+      },
+    }
+
+    expect(() =>
+      createBaseGameRuntime(brokenPort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('project boom')
+    expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  test('a throwing handle binding disposes the already-created handle session', () => {
+    const brokenHandlePort: NativeHandlePort = {
+      ...handlePort,
+      createBinding: () => {
+        throw new Error('binding boom')
+      },
+    }
+
+    expect(() =>
+      createHandleGameRuntime(brokenHandlePort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('binding boom')
+    expect(mockCleanupOrder).toEqual(['handle-session-disposed'])
   })
 })

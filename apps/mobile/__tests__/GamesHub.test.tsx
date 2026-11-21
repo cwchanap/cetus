@@ -27,13 +27,17 @@ import GameDetailScreen from '../app/games/[gameId]'
 import { GAMES, GameID } from '@cetus/shared/games'
 import { isNativePlayable } from '../src/games/registry'
 
-// HPA-425 wave 1: the eight games with native ports (boards land per game).
+// HPA-425 wave 1 + HPA-535 Stages 1–5: the games with native ports.
 const NATIVE_WAVE_IDS = [
   GameID.ASTEROID_DRIFT,
+  GameID.BEJEWELED,
+  GameID.BUBBLE_SHOOTER,
+  GameID.CIRCUIT_HACKER,
   GameID.CHROMATIC_TIDE,
   GameID.EVADER,
   GameID.GAME_2048,
   GameID.GRAVITY_FLIP,
+  GameID.ICE_SLIDE,
   GameID.MEMORY_MATRIX,
   GameID.MINE_GRID,
   GameID.PATH_NAVIGATOR,
@@ -41,9 +45,12 @@ const NATIVE_WAVE_IDS = [
   GameID.POTION_SORTER,
   GameID.QUICK_MATH,
   GameID.REFLEX,
+  GameID.RHYTHM_REACTOR,
+  GameID.SATELLITE_SYNC,
   GameID.SIGNAL_SWITCH,
   GameID.SNAKE,
   GameID.SUDOKU,
+  GameID.TETRIS,
   GameID.WORD_SCRAMBLE,
 ] as const
 
@@ -203,7 +210,7 @@ describe('game detail', () => {
     expect(rendered).toContain('5-15 minutes')
   })
 
-  test('marks the sixteen native registry games playable in the hub list', async () => {
+  test('marks all twenty-three native registry games playable in the hub list', async () => {
     const tree = await render(<GamesScreen />)
 
     const rendered = renderedText(tree)
@@ -214,7 +221,7 @@ describe('game detail', () => {
       expect(rendered).toContain(`${game.category}\n${expected}`)
     }
     expect(ACTIVE_GAMES.filter(game => isNativePlayable(game.id))).toHaveLength(
-      16
+      23
     )
   })
 
@@ -240,27 +247,13 @@ describe('game detail', () => {
     }
   })
 
-  test('honestly disables the play CTA for the seven unported games', async () => {
+  test('honestly labels every catalog game as playable now that the wave is complete', async () => {
     const unported = ACTIVE_GAMES.filter(game => !isNativePlayable(game.id))
-    expect(unported).toHaveLength(7)
-    for (const game of unported) {
-      mockPush.mockClear()
-      mockParams.gameId = game.id
-      const tree = await render(<GameDetailScreen />)
-
-      const cta = tree.root.findByProps({
-        accessibilityLabel: `Play ${game.name}`,
-      })
-      expect(cta.props.disabled).toBe(true)
-      await act(async () => {
-        cta.props.onPress?.()
-      })
-
-      const rendered = renderedText(tree)
-      expect(rendered).toContain('Not playable on mobile yet')
-      expect(mockPush).not.toHaveBeenCalled()
-    }
-    expect(mockReplace).not.toHaveBeenCalled()
+    expect(unported).toHaveLength(0)
+    const tree = await render(<GamesScreen />)
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('Not playable on mobile yet')
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   test('renders a not-found state for an unknown game id', async () => {

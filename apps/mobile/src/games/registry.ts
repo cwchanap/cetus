@@ -1,6 +1,11 @@
 import type { ComponentType } from 'react'
 import { GameID } from '@cetus/shared/games'
-import { createStableProjector } from '@cetus/app-core'
+import {
+    createStableProjector,
+    type GameSessionResult,
+    type GameSessionSnapshot,
+    type HandleSessionHandlers,
+} from '@cetus/app-core'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { ScorePlatform } from '@cetus/shared/validations'
 import type { BaseGame, BaseGameState, BaseGameStats } from '@cetus/games'
@@ -33,6 +38,12 @@ import type {
 } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
+import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
+import type { TetrisState } from '@cetus/games/tetris/types'
+import { BejeweledGame } from '@cetus/games/bejeweled/game'
+import type { BejeweledState } from '@cetus/games/bejeweled/types'
+import { BubbleShooterGame } from '@cetus/games/bubble-shooter/BubbleShooterGame'
+import type { BubbleShooterState } from '@cetus/games/bubble-shooter/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import type {
     ChromaticTideState,
@@ -72,11 +83,38 @@ import type {
     AsteroidDriftState,
     AsteroidDriftStats,
 } from '@cetus/games/asteroid-drift/types'
+import { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorState,
+} from '@cetus/games/rhythm-reactor/types'
+import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
+import type { CircuitHackerStats } from '@cetus/games/circuit-hacker/types'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
+import {
+    CIRCUIT_HACKER_DEFAULT_DIFFICULTY,
+    CircuitHackerController,
+    projectCircuitHackerState,
+} from './circuit-hacker/controller'
+import { SatelliteSyncController } from './satellite-sync/controller'
+import {
+    createRhythmReactorRun,
+    getRhythmReactorRun,
+} from './rhythm-reactor/run'
+import {
+    ICE_SLIDE_INITIAL_PROJECTION,
+    IceSlideController,
+} from './ice-slide/controller'
+import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
+import { BejeweledBoard } from './boards/BejeweledBoard'
+import { BubbleShooterBoard } from './boards/BubbleShooterBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { CircuitHackerBoard } from './boards/CircuitHackerBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
 import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
+import { IceSlideBoard } from './boards/IceSlideBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PathNavigatorBoard } from './boards/PathNavigatorBoard'
@@ -84,9 +122,12 @@ import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
 import { ReflexBoard } from './boards/ReflexBoard'
+import { RhythmReactorBoard } from './boards/RhythmReactorBoard'
+import { SatelliteSyncBoard } from './boards/SatelliteSyncBoard'
 import { SignalSwitchBoard } from './boards/SignalSwitchBoard'
 import { SnakeBoard } from './boards/SnakeBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
+import { TetrisBoard } from './boards/TetrisBoard'
 import { WordScrambleBoard } from './boards/WordScrambleBoard'
 
 /**
@@ -138,11 +179,58 @@ export interface NativeGamePort {
     /** Optional result-sheet outcome label derived from the finished
      * run's stats (e.g. Chromatic Tide Cleared/Timeout); null hides it. */
     resultOutcomeLabel?: (stats: BaseGameStats) => string | null
+    /** Async pre-run preparation the host awaits before enabling the shared
+     *  Start/Replay actions (Rhythm Reactor's bundled audio). */
+    prepare?: (game: BaseGame) => Promise<void>
+    /** Optional Start/Replay seam: the port owns pre-run readiness and calls
+     *  `game.start()` only on success. */
+    startRun?: (game: BaseGame) => void | Promise<void>
+    /** Optional manual Reset seam so a port can stop its resources and still
+     *  reset the model locally. */
+    resetRun?: (game: BaseGame) => void
+    /** Optional runtime-lifecycle hook (e.g. a game-specific AppState
+     *  policy); the returned unsubscribe runs on runtime disposal. */
+    attachLifecycle?: (game: BaseGame) => () => void
+    /** Optional runtime-owned teardown before the model is destroyed. */
+    disposeRun?: (game: BaseGame) => void
     view?: ComponentType<NativeGameViewProps>
 }
 
 export interface NativeGameEntry {
     port?: NativeGamePort
+    /** Distinct handle-based variant for callback/imperative games that do
+     *  NOT extend BaseGame (Circuit Hacker, Satellite Sync, Ice Slide). */
+    handlePort?: NativeHandlePort
+}
+
+/** Board props for a handle-based runtime: the projection plus the
+ *  stable per-host controller — never an assumed raw model prop. */
+export interface NativeHandleGameViewProps {
+    projected: NativeGameProjection
+    binding: unknown
+}
+
+/** Stable per-host controller a handle port builds; the chrome's
+ *  zero-argument Start/Replay resolves the pre-run selection here. */
+export interface NativeHandleBinding {
+    start(): void
+    cleanup(): void
+}
+
+export interface NativeHandleBindingContext extends NativeGameHostDeps {
+    handlers: HandleSessionHandlers<NativeGameProjection>
+    results: HandleResultHelper
+}
+
+/** One handle game's native port: its controller factory, board view and
+ *  finished-run label. The shared producer owns the session, the handle
+ *  result helper and teardown. */
+export interface NativeHandlePort {
+    gameId: GameID
+    initialSnapshot: GameSessionSnapshot<NativeGameProjection>
+    createBinding(context: NativeHandleBindingContext): NativeHandleBinding
+    view: ComponentType<NativeHandleGameViewProps>
+    resultOutcomeLabel?: (result: GameSessionResult) => string | null
 }
 
 const memoryMatrixPort: NativeGamePort = {
@@ -476,6 +564,147 @@ const wordScramblePort: NativeGamePort = {
         }
     },
     view: WordScrambleBoard,
+}
+
+const projectTetrisHud = (
+    state: BaseGameState,
+    game: BaseGame
+): NativeGameProjection => {
+    const { level, lines, holdUsed, isActive, isPaused, isGameOver } =
+        state as TetrisState
+    return {
+        level,
+        lines,
+        holdUsed,
+        canAct: isActive && !isPaused && !isGameOver,
+        // The model's countdown duration is Number.MAX_SAFE_INTEGER, so the
+        // shared chrome must show the elapsed clock instead of that value.
+        clock: Math.floor(
+            (game as TetrisGame).getTimerStatus().elapsedTime || 0
+        ),
+    }
+}
+
+const tetrisPort: NativeGamePort = {
+    createGame: deps =>
+        new TetrisGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    // HUD primitives only; the board copies its own scene.
+    project: projectTetrisHud,
+    createProjector: game =>
+        createStableProjector((state: BaseGameState) =>
+            projectTetrisHud(state, game)
+        ),
+    view: TetrisBoard,
+}
+
+const selectBejeweledView = (state: BaseGameState): NativeGameProjection => {
+    const {
+        grid,
+        selected,
+        movesMade,
+        combo,
+        isAnimating,
+        isActive,
+        isPaused,
+        isGameOver,
+    } = state as BejeweledState
+    return {
+        // Copied cell values: the model mutates the grid in place through
+        // every cascade step.
+        cells: grid.map(row => [...row]),
+        selected: selected ? { ...selected } : null,
+        movesMade,
+        combo,
+        isAnimating,
+        phase: isGameOver
+            ? 'finished'
+            : !isActive
+              ? 'idle'
+              : isPaused
+                ? 'paused'
+                : 'running',
+        canAct: isActive && !isPaused && !isGameOver && !isAnimating,
+    }
+}
+
+const bejeweledPort: NativeGamePort = {
+    // Unlike Tetris/Bubble Shooter, the catalog GameID is the first
+    // constructor argument (as with Quick Math); callbacks stay empty —
+    // the shared session subscribes to the model's events.
+    createGame: deps =>
+        new BejeweledGame(
+            GameID.BEJEWELED,
+            {
+                submitScore: deps.submitScore,
+                platform: deps.platform,
+            },
+            {}
+        ),
+    project: selectBejeweledView,
+    // The grid and HUD only change on state events, so clock ticks reuse
+    // the previous projection reference.
+    createProjector: () => createStableProjector(selectBejeweledView),
+    view: BejeweledBoard,
+}
+
+const selectBubbleShooterView = (
+    state: BaseGameState,
+    game: BaseGame
+): NativeGameProjection => {
+    const {
+        aimAngle,
+        currentBubble,
+        nextBubble,
+        projectile,
+        shotsFired,
+        bubblesRemaining,
+        isActive,
+        isPaused,
+        isGameOver,
+    } = state as BubbleShooterState
+    return {
+        aimAngle,
+        currentColor: currentBubble?.color ?? null,
+        nextColor: nextBubble?.color ?? null,
+        projectile: projectile !== null,
+        shotsFired,
+        bubblesRemaining,
+        phase: isGameOver
+            ? 'finished'
+            : !isActive
+              ? 'idle'
+              : isPaused
+                ? 'paused'
+                : 'running',
+        canShoot:
+            isActive &&
+            !isPaused &&
+            !isGameOver &&
+            projectile === null &&
+            currentBubble !== null &&
+            nextBubble !== null,
+        // The model's countdown duration is Number.MAX_SAFE_INTEGER, so the
+        // shared chrome must show the elapsed clock instead of that value.
+        clock: Math.floor(game.getTimerStatus().elapsedTime || 0),
+    }
+}
+
+const bubbleShooterPort: NativeGamePort = {
+    createGame: deps =>
+        new BubbleShooterGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    // HUD primitives only; the board copies its own scene.
+    project: selectBubbleShooterView,
+    createProjector: game =>
+        createStableProjector((state: BaseGameState) =>
+            selectBubbleShooterView(state, game)
+        ),
+    view: BubbleShooterBoard,
 }
 
 const chromaticTidePort: NativeGamePort = {
@@ -817,11 +1046,122 @@ const asteroidDriftPort: NativeGamePort = {
     view: AsteroidDriftBoard,
 }
 
+const selectRhythmReactorView = (
+    state: BaseGameState
+): NativeGameProjection => {
+    const {
+        perfectHits,
+        goodHits,
+        misses,
+        strayPresses,
+        combo,
+        maxCombo,
+        stability,
+        lastJudgment,
+    } = state as RhythmReactorState
+    return {
+        hits: perfectHits + goodHits,
+        perfectHits,
+        goodHits,
+        misses,
+        strayPresses,
+        combo,
+        maxCombo,
+        stability,
+        judgment: lastJudgment?.toUpperCase() ?? 'READY',
+    }
+}
+
+const rhythmReactorGame = (game: BaseGame): RhythmReactorGame =>
+    game as RhythmReactorGame
+
+const rhythmReactorPort: NativeGamePort = {
+    createGame: deps => {
+        const game = new RhythmReactorGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+            // The shared frame loop feeds the model one absolute media-time
+            // delta; allow the whole 60 s so a 200 ms hitch catches up.
+            maxUpdateDelta: RHYTHM_REACTOR_RULES.duration,
+        })
+        createRhythmReactorRun(game)
+        return game
+    },
+    project: selectRhythmReactorView,
+    createProjector: () => createStableProjector(selectRhythmReactorView),
+    // The bundled click track must be decoded before the shared Start/Replay
+    // UI unlocks; a rejection takes the host's setup-error retry path.
+    prepare: game => getRhythmReactorRun(rhythmReactorGame(game)).prepare(),
+    // Start/Replay stays idle when the track cannot play.
+    startRun: game => getRhythmReactorRun(rhythmReactorGame(game)).start(),
+    resetRun: game => getRhythmReactorRun(rhythmReactorGame(game)).reset(),
+    attachLifecycle: game =>
+        getRhythmReactorRun(rhythmReactorGame(game)).attachAppState(),
+    disposeRun: game => getRhythmReactorRun(rhythmReactorGame(game)).dispose(),
+    view: RhythmReactorBoard,
+}
+
+// Handle-based port: CircuitHackerGame is callback/imperative (no BaseGame,
+// no pause API) and takes difficulty only in its constructor. The
+// controller owns the pre-run selection and the zero-argument replay.
+const circuitHackerHandlePort: NativeHandlePort = {
+    gameId: GameID.CIRCUIT_HACKER,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining:
+            DIFFICULTY_CONFIGS[CIRCUIT_HACKER_DEFAULT_DIFFICULTY].duration,
+        projected: projectCircuitHackerState(
+            CIRCUIT_HACKER_DEFAULT_DIFFICULTY,
+            null
+        ) as unknown as NativeGameProjection,
+        result: null,
+    },
+    createBinding: context => new CircuitHackerController(context),
+    resultOutcomeLabel: result =>
+        (result.stats as unknown as CircuitHackerStats).solved
+            ? 'Solved'
+            : 'Not solved',
+    view: CircuitHackerBoard,
+}
+
+const satelliteSyncHandlePort: NativeHandlePort = {
+    gameId: GameID.SATELLITE_SYNC,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining: SATELLITE_SYNC_LEVELS[0].timeBudget,
+        projected: { level: 1 },
+        result: null,
+    },
+    createBinding: context => new SatelliteSyncController(context),
+    resultOutcomeLabel: result =>
+        result.stats.gameCompleted ? 'Mission complete' : "Time's up",
+    view: SatelliteSyncBoard,
+}
+
+const iceSlideHandlePort: NativeHandlePort = {
+    gameId: GameID.ICE_SLIDE,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining: 0,
+        projected:
+            ICE_SLIDE_INITIAL_PROJECTION as unknown as NativeGameProjection,
+        result: null,
+    },
+    createBinding: context => new IceSlideController(context),
+    resultOutcomeLabel: result =>
+        result.stats.gameCompleted ? 'Mission complete' : 'Run ended',
+    view: IceSlideBoard,
+}
+
 /**
- * The single native game registry (HPA-425 wave 1). Keys are computed from
- * the imported `GameID` enum members — never bare id strings — and presence
- * in this map is what the Games hub, the detail Play button and the play
- * route all consult. Eight playable, fifteen disabled.
+ * The single native game registry (HPA-425 wave 1, extended per HPA-535).
+ * Keys are computed from the imported `GameID` enum members — never bare
+ * id strings — and presence in this map is what the Games hub, the detail
+ * Play button and the play route all consult. Twenty-three playable, none
+ * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },
@@ -840,6 +1180,13 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.EVADER]: { port: evaderPort },
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
+    [GameID.TETRIS]: { port: tetrisPort },
+    [GameID.BEJEWELED]: { port: bejeweledPort },
+    [GameID.BUBBLE_SHOOTER]: { port: bubbleShooterPort },
+    [GameID.RHYTHM_REACTOR]: { port: rhythmReactorPort },
+    [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
+    [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
+    [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

@@ -20,6 +20,12 @@ import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
 import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
 import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
+import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
+import type { TetrisState } from '@cetus/games/tetris/types'
+import { BejeweledGame } from '@cetus/games/bejeweled/game'
+import type { BejeweledState } from '@cetus/games/bejeweled/types'
+import { BubbleShooterGame } from '@cetus/games/bubble-shooter/BubbleShooterGame'
+import type { BubbleShooterState } from '@cetus/games/bubble-shooter/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
@@ -49,6 +55,18 @@ import type {
 } from '@cetus/games/path-navigator/types'
 import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
 import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
+import { RhythmReactorGame } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorState,
+} from '@cetus/games/rhythm-reactor/types'
+import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
+import type { CircuitHackerController } from '../src/games/circuit-hacker/controller'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
+import { SatelliteSyncGame } from '@cetus/games/satellite-sync/game'
+import type { SatelliteSyncController } from '../src/games/satellite-sync/controller'
+import type { IceSlideController } from '../src/games/ice-slide/controller'
+import { IceSlideBoard } from '../src/games/boards/IceSlideBoard'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -70,6 +88,10 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.EVADER, EvaderGame],
     [GameID.PATH_NAVIGATOR, PathNavigatorGame],
     [GameID.ASTEROID_DRIFT, AsteroidDriftGame],
+    [GameID.TETRIS, TetrisGame],
+    [GameID.BEJEWELED, BejeweledGame],
+    [GameID.BUBBLE_SHOOTER, BubbleShooterGame],
+    [GameID.RHYTHM_REACTOR, RhythmReactorGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -77,14 +99,19 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1: exactly these eight games are native-destined. The list
-// is duplicated here on purpose — the test must fail if the registry drifts.
+// HPA-425 wave 1 plus HPA-535 Stages 1–5: exactly these twenty-three games
+// are native-destined. The list is duplicated here on purpose — the test
+// must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.ASTEROID_DRIFT,
+    GameID.BEJEWELED,
+    GameID.BUBBLE_SHOOTER,
+    GameID.CIRCUIT_HACKER,
     GameID.CHROMATIC_TIDE,
     GameID.EVADER,
     GameID.GAME_2048,
     GameID.GRAVITY_FLIP,
+    GameID.ICE_SLIDE,
     GameID.MEMORY_MATRIX,
     GameID.MINE_GRID,
     GameID.PATH_NAVIGATOR,
@@ -92,16 +119,19 @@ const EXPECTED_NATIVE_IDS = [
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
     GameID.REFLEX,
+    GameID.RHYTHM_REACTOR,
+    GameID.SATELLITE_SYNC,
     GameID.SIGNAL_SWITCH,
     GameID.SNAKE,
     GameID.SUDOKU,
+    GameID.TETRIS,
     GameID.WORD_SCRAMBLE,
 ] as const
 
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the sixteen registry game ids', () => {
+    test('contains exactly the twenty-three registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -110,16 +140,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 16 playable, 7 disabled of 23', () => {
+    test('registry and catalog counts line up: 23 playable, 0 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(16)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(23)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(7)
+        expect(disabled).toHaveLength(0)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -135,12 +165,18 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The fifteen unported registry games stay disabled.
-        expect(isNativePlayable(GameID.TETRIS)).toBe(false)
-        expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
+        // The final unported registry game is now live; every catalog entry
+        // is playable on mobile.
+        expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(true)
+        expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(true)
+        expect(isNativePlayable(GameID.BEJEWELED)).toBe(true)
+        expect(isNativePlayable(GameID.TETRIS)).toBe(true)
+        expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(true)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
         expect(isNativePlayable(GameID.ASTEROID_DRIFT)).toBe(true)
+        expect(isNativePlayable(GameID.CIRCUIT_HACKER)).toBe(true)
+        expect(isNativePlayable(GameID.SATELLITE_SYNC)).toBe(true)
     })
 
     test('production entries construct their concrete game with the injected deps', () => {
@@ -177,6 +213,280 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
+    test('Circuit Hacker registers the distinct handle variant, not a BaseGame port', () => {
+        const entry = getNativeGameEntry(GameID.CIRCUIT_HACKER)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.CIRCUIT_HACKER)
+        expect(port.view).toBeDefined()
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: DIFFICULTY_CONFIGS.medium.duration,
+            result: null,
+            projected: {
+                rows: DIFFICULTY_CONFIGS.medium.rows,
+                cols: DIFFICULTY_CONFIGS.medium.cols,
+                cells: [],
+                difficulty: 'medium',
+                phase: 'idle',
+            },
+        })
+        expect(
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { solved: true },
+            } as never)
+        ).toBe('Solved')
+        expect(
+            port.resultOutcomeLabel?.({
+                score: 0,
+                stats: { solved: false },
+            } as never)
+        ).toBe('Not solved')
+    })
+
+    test('the Circuit Hacker controller constructs its model lazily on start with the selected difficulty', () => {
+        const port = getNativeGameEntry(GameID.CIRCUIT_HACKER)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onTime: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as CircuitHackerController
+
+        // No grid before Start: generation is lazy.
+        expect(binding.getGame()).toBeNull()
+        binding.selectDifficulty('easy')
+        expect(binding.getProjection()).toMatchObject({
+            difficulty: 'easy',
+            rows: 5,
+            cols: 5,
+            phase: 'idle',
+            cells: [],
+        })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game).not.toBeNull()
+        expect(game?.getState().grid).toHaveLength(5)
+        expect(results.beginRun).toHaveBeenCalledWith(
+            DIFFICULTY_CONFIGS.easy.duration
+        )
+        expect(handlers.setProjected).toHaveBeenCalled()
+        const projected = binding.getProjection()
+        expect(JSON.parse(JSON.stringify(projected))).toEqual(projected)
+        expect(projected.phase).toBe('running')
+        binding.cleanup()
+        expect(binding.getGame()).toBeNull()
+    })
+
+    test('Satellite Sync registers the handle variant with idle level/HUD state', () => {
+        const entry = getNativeGameEntry(GameID.SATELLITE_SYNC)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.SATELLITE_SYNC)
+        expect(port.view).toBeDefined()
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: SATELLITE_SYNC_LEVELS[0].timeBudget,
+            result: null,
+            projected: { level: 1 },
+        })
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        const label = (gameCompleted: boolean) =>
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { finalScore: 10, timeElapsed: 0, gameCompleted },
+            } as never)
+        expect(label(true)).toBe('Mission complete')
+        expect(label(false)).toBe("Time's up")
+    })
+
+    test('the Satellite Sync controller builds lazily, publishes the level and resets on stop', () => {
+        const port = getNativeGameEntry(GameID.SATELLITE_SYNC)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onIdle: jest.fn(),
+            onTime: jest.fn(),
+            onScore: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as SatelliteSyncController
+
+        expect(binding.getGame()).toBeNull()
+        expect(binding.getProjection()).toEqual({ level: 1 })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game).toBeInstanceOf(SatelliteSyncGame)
+        expect(game?.getState().status).toBe('playing')
+        expect(results.beginRun).toHaveBeenCalledWith(
+            SATELLITE_SYNC_LEVELS[0].timeBudget
+        )
+        expect(JSON.parse(JSON.stringify(binding.getProjection()))).toEqual(
+            binding.getProjection()
+        )
+
+        binding.stop()
+        expect(binding.getGame()).toBeNull()
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(handlers.onScore).toHaveBeenLastCalledWith(0)
+        expect(handlers.onTime).toHaveBeenLastCalledWith(
+            SATELLITE_SYNC_LEVELS[0].timeBudget
+        )
+        expect(handlers.setProjected).toHaveBeenLastCalledWith({ level: 1 })
+    })
+
+    test('Ice Slide registers the handle variant with an idle mode/HUD state', () => {
+        const entry = getNativeGameEntry(GameID.ICE_SLIDE)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.ICE_SLIDE)
+        expect(port.view).toBe(IceSlideBoard)
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: 0,
+            result: null,
+            projected: {
+                mode: 'campaign',
+                status: 'idle',
+                rows: 0,
+                grid: [],
+                canChooseMode: true,
+                canMove: false,
+                canUndo: false,
+            },
+        })
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        const label = (gameCompleted: boolean) =>
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { finalScore: 10, timeElapsed: 0, gameCompleted },
+            } as never)
+        expect(label(true)).toBe('Mission complete')
+        expect(label(false)).toBe('Run ended')
+    })
+
+    test('the Ice Slide controller starts lazily and idles a zero-score stop', () => {
+        const port = getNativeGameEntry(GameID.ICE_SLIDE)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onIdle: jest.fn(),
+            onTime: jest.fn(),
+            onScore: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as IceSlideController
+
+        expect(binding.getGame()).toBeNull()
+        expect(binding.getProjection()).toMatchObject({
+            mode: 'campaign',
+            status: 'idle',
+            rows: 0,
+            canChooseMode: true,
+            canMove: false,
+        })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game?.getState().mode).toBe('campaign')
+        expect(game?.getState().status).toBe('playing')
+        expect(results.beginRun).toHaveBeenCalledWith(0)
+        expect(JSON.parse(JSON.stringify(binding.getProjection()))).toEqual(
+            binding.getProjection()
+        )
+        expect(binding.getProjection()).toMatchObject({
+            rows: 5,
+            cols: 5,
+            level: 1,
+            levelsTotal: 8,
+            canMove: true,
+            canChooseMode: false,
+        })
+
+        binding.stop()
+        expect(binding.getGame()).toBeNull()
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(results.finishAndSave).not.toHaveBeenCalled()
+        expect(handlers.onScore).toHaveBeenLastCalledWith(0)
+        expect(handlers.onTime).toHaveBeenLastCalledWith(0)
+        expect(handlers.setProjected).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                status: 'idle',
+                rows: 0,
+                canChooseMode: true,
+            })
+        )
+        binding.cleanup()
+    })
+
     test('the Sudoku projector reads the elapsed clock off the constructed instance', async () => {
         const port = getNativeGameEntry(GameID.SUDOKU)?.port
         expect(port).toBeDefined()
@@ -189,6 +499,223 @@ describe('NATIVE_GAMES registry', () => {
         const projected = port.project(game.getState(), game)
         expect(projected.clock).toBe(game.getTimerStatus().elapsedTime)
         expect(projected.clock).toBeGreaterThan(0)
+        game.destroy()
+    })
+
+    test('the Tetris projector reads the elapsed clock and HUD off the running instance', () => {
+        const port = getNativeGameEntry(GameID.TETRIS)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as TetrisGame
+        expect(port.project(game.getState(), game)).toEqual({
+            level: 1,
+            lines: 0,
+            holdUsed: false,
+            canAct: false,
+            clock: 0,
+        })
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            level: number
+            holdUsed: boolean
+            canAct: boolean
+            clock: number
+        }
+        expect(running).toMatchObject({
+            level: 1,
+            holdUsed: false,
+            canAct: true,
+        })
+        expect(running.clock).toBe(game.getTimerStatus().elapsedTime)
+        // The model's countdown duration is the framework placeholder the
+        // chrome must never display; the elapsed clock replaces it.
+        expect(game.getState().timeRemaining).toBe(Number.MAX_SAFE_INTEGER)
+        // getState() is a copy; the model's live state is what projection
+        // reads, so mutate that.
+        const state = (game as unknown as { state: TetrisState }).state
+        state.lines = 8
+        state.holdUsed = true
+        expect(port.project(game.getState(), game)).toMatchObject({
+            lines: 8,
+            holdUsed: true,
+        })
+        game.destroy()
+    })
+
+    test('the Bejeweled projector copies the grid and reads the animation gate', () => {
+        const port = getNativeGameEntry(GameID.BEJEWELED)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as BejeweledGame
+        const idle = port.project(game.getState(), game) as {
+            cells: Array<Array<string | null>>
+            selected: { row: number; col: number } | null
+            movesMade: number
+            combo: number
+            isAnimating: boolean
+            phase: string
+            canAct: boolean
+        }
+        // The 8×8 visible board copies every gem value, idle and unselectable.
+        expect(idle.cells).toHaveLength(8)
+        expect(idle.cells.every(row => row.length === 8)).toBe(true)
+        expect(
+            idle.cells.flat().every(jewel => typeof jewel === 'string')
+        ).toBe(true)
+        expect(idle).toMatchObject({
+            selected: null,
+            movesMade: 0,
+            combo: 0,
+            isAnimating: false,
+            phase: 'idle',
+            canAct: false,
+        })
+
+        game.start()
+        expect(port.project(game.getState(), game)).toMatchObject({
+            phase: 'running',
+            canAct: true,
+        })
+
+        // Copies, not grid references: the model mutates in place through
+        // every cascade, and the animation gate must close on the fresh
+        // projection.
+        const live = (game as unknown as { state: BejeweledState }).state
+        live.selected = { row: 2, col: 3 }
+        live.isAnimating = true
+        const animating = port.project(game.getState(), game) as {
+            selected: { row: number; col: number } | null
+            isAnimating: boolean
+            canAct: boolean
+        }
+        expect(animating.selected).toEqual({ row: 2, col: 3 })
+        expect(animating.isAnimating).toBe(true)
+        expect(animating.canAct).toBe(false)
+        expect(animating).not.toBe(idle)
+        game.destroy()
+    })
+
+    test('the Bubble Shooter port ships a board view and HUD primitives off the live run', () => {
+        const port = getNativeGameEntry(GameID.BUBBLE_SHOOTER)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as BubbleShooterGame
+        expect(port.project(game.getState(), game)).toEqual({
+            aimAngle: -Math.PI / 2,
+            currentColor: null,
+            nextColor: null,
+            projectile: false,
+            shotsFired: 0,
+            bubblesRemaining: 0,
+            phase: 'idle',
+            canShoot: false,
+            clock: 0,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            currentColor: number | null
+            nextColor: number | null
+            phase: string
+            canShoot: boolean
+            clock: number
+        }
+        expect(running.phase).toBe('running')
+        expect(running.canShoot).toBe(true)
+        // The queue holds the generated palette colors as primitives.
+        expect(typeof running.currentColor).toBe('number')
+        expect(typeof running.nextColor).toBe('number')
+        expect(running.clock).toBe(game.getTimerStatus().elapsedTime)
+
+        // Copies, not references: a live projectile and counter change
+        // surface through the next projection and close the input gate.
+        const live = (game as unknown as { state: BubbleShooterState }).state
+        live.shotsFired = 3
+        live.projectile = {
+            x: 300,
+            y: 400,
+            vx: 0,
+            vy: -720,
+            color: 0xff4444,
+        }
+        expect(port.project(game.getState(), game)).toMatchObject({
+            shotsFired: 3,
+            projectile: true,
+            canShoot: false,
+        })
+        game.destroy()
+    })
+
+    test('the Rhythm Reactor port ships the audio-gated board, HUD projection and 60 s clock cap', () => {
+        const port = getNativeGameEntry(GameID.RHYTHM_REACTOR)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        expect(port.prepare).toBeDefined()
+        expect(port.startRun).toBeDefined()
+        expect(port.resetRun).toBeDefined()
+        expect(port.attachLifecycle).toBeDefined()
+        expect(port.disposeRun).toBeDefined()
+
+        const game = port.createGame(hostDeps('ios')) as RhythmReactorGame
+        // Web keeps its 0.1 s cap; native accepts the full 60 s media delta
+        // so a frame hitch catches the model up in one update.
+        const config = (
+            game as unknown as {
+                config: {
+                    maxUpdateDelta: number
+                    beatStepSeconds: number
+                    firstHitTimeSeconds: number
+                }
+            }
+        ).config
+        expect(config.maxUpdateDelta).toBe(RHYTHM_REACTOR_RULES.duration)
+        expect(config.firstHitTimeSeconds).toBe(2)
+        expect(config.beatStepSeconds).toBe(0.5)
+
+        expect(port.project(game.getState(), game)).toEqual({
+            hits: 0,
+            perfectHits: 0,
+            goodHits: 0,
+            misses: 0,
+            strayPresses: 0,
+            combo: 0,
+            maxCombo: 0,
+            stability: RHYTHM_REACTOR_RULES.initialStability,
+            judgment: 'READY',
+        })
+        expect(
+            game
+                .getState()
+                .pendingNotes.slice(0, 3)
+                .map(note => note.hitTimeSeconds)
+        ).toEqual([2, 3, 4])
+
+        const live = (game as unknown as { state: RhythmReactorState }).state
+        live.perfectHits = 2
+        live.goodHits = 1
+        live.combo = 3
+        live.maxCombo = 3
+        live.lastJudgment = 'perfect'
+        expect(port.project(game.getState(), game)).toMatchObject({
+            hits: 3,
+            perfectHits: 2,
+            goodHits: 1,
+            combo: 3,
+            maxCombo: 3,
+            judgment: 'PERFECT',
+        })
         game.destroy()
     })
 

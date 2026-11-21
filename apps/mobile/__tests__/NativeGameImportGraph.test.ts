@@ -35,6 +35,10 @@ type TsExpression = import('typescript').Expression
 const FORBIDDEN_EXTERNAL =
     /^(react-dom|react-native-web|pixi\.js|canvaskit-wasm|@\/)(\/|$)|^@shopify\/react-native-skia\/(.+\/)?web(\/|$)|^@shopify\/react-native-skia\/.+\.web(\.|$)/
 
+/** Bundled media/images are leaves: verify the file exists, never parse it
+ *  as source. */
+const ASSET_EDGE = /\.(m4a|mp3|wav|aac|aiff|caf|png|jpe?g|gif|webp|svg)$/i
+
 const extractRuntimeEdges = (
     file: string,
     source: string
@@ -154,6 +158,12 @@ const collectNativeDependencyGraph = (entries: string[]): NativeGraph => {
                 graph.forbidden.push(edge)
                 continue
             }
+            if (ASSET_EDGE.test(edge.specifier)) {
+                if (!existsSync(resolve(dirname(file), edge.specifier))) {
+                    graph.unresolved.push(edge)
+                }
+                continue
+            }
             if (!edge.specifier.startsWith('.')) {
                 graph.externals.add(edge.specifier)
                 continue
@@ -265,6 +275,37 @@ describe('the native game routing graph stays portable', () => {
             'canvaskit-wasm',
             'pixi.js',
         ])
+    })
+
+    test('the handle-game producer, controller and board join the same portable graph', () => {
+        const reachable = [...graph.reachable.keys()].map(file =>
+            relative(mobileRoot, file)
+        )
+        for (const expected of [
+            'src/games/runtime.tsx',
+            'src/games/handleResult.ts',
+            'src/games/rewards.ts',
+            'src/games/circuit-hacker/controller.ts',
+            'src/games/boards/CircuitHackerBoard.tsx',
+            'src/games/satellite-sync/controller.ts',
+            'src/games/boards/SatelliteSyncBoard.tsx',
+            'src/games/ice-slide/controller.ts',
+            'src/games/boards/IceSlideBoard.tsx',
+            'src/games/rhythm-reactor/run.ts',
+            'src/games/boards/RhythmReactorBoard.tsx',
+            'src/games/canvas/useFrameLoop.ts',
+        ]) {
+            expect(reachable).toContain(expected)
+        }
+        // The shared producer must not fake a BaseGame model for handles.
+        for (const controller of [
+            'src/games/circuit-hacker/controller.ts',
+            'src/games/satellite-sync/controller.ts',
+            'src/games/ice-slide/controller.ts',
+        ]) {
+            const source = readFileSync(join(mobileRoot, controller), 'utf-8')
+            expect(source).not.toMatch(/extends\s+BaseGame/)
+        }
     })
 })
 
@@ -411,6 +452,18 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         /packages\/games\/src\/chromatic-tide\/types\.ts$/,
     ],
     [
+        '@cetus/games/bejeweled/types',
+        /packages\/games\/src\/bejeweled\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/bubble-shooter/BubbleShooterGame',
+        /packages\/games\/src\/bubble-shooter\/BubbleShooterGame\.ts$/,
+    ],
+    [
+        '@cetus/games/bubble-shooter/types',
+        /packages\/games\/src\/bubble-shooter\/types\.ts$/,
+    ],
+    [
         '@cetus/games/mine-grid/types',
         /packages\/games\/src\/mine-grid\/types\.ts$/,
     ],
@@ -445,9 +498,71 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         /packages\/games\/src\/asteroid-drift\/types\.ts$/,
     ],
     [
+        '@cetus/games/circuit-hacker/game',
+        /packages\/games\/src\/circuit-hacker\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/circuit-hacker/types',
+        /packages\/games\/src\/circuit-hacker\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/circuit-hacker/utils',
+        /packages\/games\/src\/circuit-hacker\/utils\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/game',
+        /packages\/games\/src\/satellite-sync\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/geometry',
+        /packages\/games\/src\/satellite-sync\/geometry\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/levels',
+        /packages\/games\/src\/satellite-sync\/levels\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/types',
+        /packages\/games\/src\/satellite-sync\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/game',
+        /packages\/games\/src\/ice-slide\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/daily',
+        /packages\/games\/src\/ice-slide\/daily\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/expedition',
+        /packages\/games\/src\/ice-slide\/expedition\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/objectives',
+        /packages\/games\/src\/ice-slide\/objectives\.ts$/,
+    ],
+    ['@cetus/games/ice-slide/run', /packages\/games\/src\/ice-slide\/run\.ts$/],
+    [
+        '@cetus/games/ice-slide/scoreSubmission',
+        /packages\/games\/src\/ice-slide\/scoreSubmission\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/types',
+        /packages\/games\/src\/ice-slide\/types\.ts$/,
+    ],
+    [
         '@cetus/games/shared/geometry',
         /packages\/games\/src\/shared\/geometry\.ts$/,
     ],
+    [
+        '@cetus/games/rhythm-reactor/RhythmReactorGame',
+        /packages\/games\/src\/rhythm-reactor\/RhythmReactorGame\.ts$/,
+    ],
+    [
+        '@cetus/games/rhythm-reactor/types',
+        /packages\/games\/src\/rhythm-reactor\/types\.ts$/,
+    ],
+    ['expo-audio', /node_modules\/expo-audio\/build\/index\.js$/],
     [
         'react-native-gesture-handler',
         /node_modules\/react-native-gesture-handler\/src\/index\.ts$/,

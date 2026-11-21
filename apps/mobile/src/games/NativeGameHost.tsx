@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AppState,
   Platform,
@@ -8,21 +8,19 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Button, Heading } from '@cetus/ui'
-import {
-  createBaseGameSession,
-  createStableProjector,
-  forwardBaseGameResults,
-  useGameSession,
-  type GameSession,
-  type GameSessionSnapshot,
-} from '@cetus/app-core'
+import { useGameSession, type GameSessionSnapshot } from '@cetus/app-core'
 import type { GameID } from '@cetus/shared/games'
 import type { ScorePlatform } from '@cetus/shared/validations'
 
 import { createScoreSubmitter } from '../lib/api'
 import { getNativeGameEntry, type NativeGameProjection } from './registry'
-import { NativeGameChrome, type NativeRewardBanner } from './NativeGameChrome'
-import type { BaseGame, BaseGameState } from '@cetus/games'
+import { NativeGameChrome } from './NativeGameChrome'
+import { mergeRewardBanner, type NativeRewardBanner } from './rewards'
+import {
+  createBaseGameRuntime,
+  createHandleGameRuntime,
+  type NativeGameRuntime,
+} from './runtime'
 
 /** Stable null-session default for the pre-effect render. */
 const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
@@ -34,17 +32,19 @@ const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
 }
 
 /**
- * Generic native session host (HPA-425 Stage 1). Creates the registry
- * entry's concrete `@cetus/games` class with a score transport pinned to
- * ONE identity-verified cookie snapshot (see `createScoreSubmitter`) and
- * the OS platform label, adapts it through ONE `createBaseGameSession` +
- * `useGameSession`, and forwards committed rewards to ONE banner. The
- * constructed instance is the per-instance binding: the projector and the
- * board view both receive it, so boards call model commands on the live
- * game while the projection stays a serializable snapshot. Unmount
- * cleanup removes the forwarder, disposes the session and destroys the
- * game — in that order. The play route's `key` (settled identity)
- * remounts this host, dropping old-account banners and game UI wholesale.
+ * Generic native session host (HPA-425 Stage 1, normalized for HPA-535).
+ * Creates the entry's runtime ONCE with a score transport pinned to one
+ * identity-verified cookie snapshot (see `createScoreSubmitter`) and the OS
+ * platform label. The producer decides whether that runtime wraps a
+ * BaseGame (`port`) or a handle-game controller (`handlePort`); this host
+ * consumes the common `{ session, binding, view, outcomeLabel, onRewards,
+ * onRunStart, dispose }` and keeps ONE `useGameSession` + ONE
+ * `NativeGameChrome` with no per-variant branches. Rewards merge through
+ * one reducer, a bare model start clears the previous run's banner, and
+ * unmount disposes the producer (BaseGame order: forwarder removed →
+ * session disposed → model destroyed). The play route's `key` (settled
+ * identity) remounts this host, dropping old-account banners and game UI
+ * wholesale.
  */
 export function NativeGameHost({
   gameId,
@@ -56,27 +56,25 @@ export function NativeGameHost({
   const router = useRouter()
   const entry = getNativeGameEntry(gameId)
   const port = entry?.port
-  const [game, setGame] = useState<BaseGame | null>(null)
-  const [session, setSession] =
-    useState<GameSession<NativeGameProjection> | null>(null)
+  const handlePort = entry?.handlePort
+  const [runtime, setRuntime] = useState<NativeGameRuntime | null>(null)
   const [rewardBanner, setRewardBanner] = useState<NativeRewardBanner | null>(
     null
   )
   const [setupError, setSetupError] = useState(false)
   const [setupAttempt, setSetupAttempt] = useState(0)
+  const [prepared, setPrepared] = useState(false)
 
   useEffect(() => {
-    if (!port) {
+    if (!port && !handlePort) {
       return
     }
     let cancelled = false
     let teardown: (() => void) | null = null
     setSetupError(false)
+    setPrepared(false)
     void (async () => {
-      let createdGame: BaseGame | null = null
-      let nextSession: GameSession<NativeGameProjection> | null = null
-      let clearBannerOnRunStart: (() => void) | null = null
-      let removeForwarder: (() => void) | null = null
+      let created: NativeGameRuntime | null = null
       try {
         // ONE credential snapshot per mount, pinned against this host's
         // settled identity; guest and unverifiable bindings never send
@@ -85,78 +83,48 @@ export function NativeGameHost({
         if (cancelled) {
           return
         }
-        createdGame = port.createGame({
+        const deps = {
           submitScore,
           platform: Platform.OS as ScorePlatform,
-        })
-        const builtGame = createdGame
-        const projector = port.createProjector
-          ? port.createProjector(builtGame)
-          : createStableProjector((state: BaseGameState) =>
-              port.project(state, builtGame)
+        }
+        created = port
+          ? createBaseGameRuntime(port, deps)
+          : createHandleGameRuntime(
+              handlePort as NonNullable<typeof handlePort>,
+              deps
             )
-        nextSession = createBaseGameSession(builtGame, projector)
-        const builtSession = nextSession
-        // A bare 'start' is the model's own new-run boundary: clear the
-        // previous run's already-delivered banner here so its rewards never
-        // merge into a newer run's delivery, while a stale same-account save
-        // that settles mid-run still delivers and merges with any awards
-        // earned on the current run.
-        clearBannerOnRunStart = (): void => setRewardBanner(null)
-        builtGame.on('start', clearBannerOnRunStart)
-        removeForwarder = forwardBaseGameResults(builtGame, {
-          onAchievements: achievements =>
-            setRewardBanner(current => {
-              const existing = current?.achievements ?? []
-              const seen = new Set(existing.map(a => a.id))
-              const merged = [
-                ...existing,
-                ...achievements.filter(a => !seen.has(a.id)),
-              ]
-              return { ...current, achievements: merged }
-            }),
-          onChallenges: challenges =>
-            setRewardBanner(current => {
-              const existing = current?.challenges?.completedChallenges ?? []
-              const seen = new Set(existing.map(c => c.id))
-              const merged = [
-                ...existing,
-                ...challenges.completedChallenges.filter(c => !seen.has(c.id)),
-              ]
-              return {
-                ...current,
-                challenges: {
-                  ...challenges,
-                  completedChallenges: merged,
-                },
-              }
-            }),
-        })
-        setGame(builtGame)
-        setSession(builtSession)
+        // A bare model start is the new-run boundary: clear the previous
+        // run's already-delivered banner so its rewards never merge into a
+        // newer run's delivery, while a stale same-account save that
+        // settles mid-run still delivers and merges with current awards.
+        created.onRunStart(() => setRewardBanner(null))
+        created.onRewards(delivery =>
+          setRewardBanner(current => mergeRewardBanner(current, delivery))
+        )
+        if (cancelled) {
+          created.dispose()
+          return
+        }
+        setRuntime(created)
         teardown = () => {
-          // Order matters: no new rewards, then session listeners, then
-          // the game (its timer and listeners) last.
-          if (clearBannerOnRunStart) {
-            builtGame.off('start', clearBannerOnRunStart)
-          }
-          removeForwarder?.()
-          builtSession.dispose()
-          builtGame.destroy()
-          setGame(null)
-          setSession(null)
+          created?.dispose()
+          setRuntime(null)
+          setPrepared(false)
           setRewardBanner(null)
         }
-      } catch {
-        if (clearBannerOnRunStart && createdGame) {
-          createdGame.off('start', clearBannerOnRunStart)
+        // Port-specific pre-run preparation (Rhythm Reactor audio) keeps
+        // Start/Replay behind the same binding-pending shell the host
+        // already shows; a rejection uses the setup-error retry path.
+        await created.prepare?.()
+        if (cancelled) {
+          return
         }
-        removeForwarder?.()
-        nextSession?.dispose()
-        createdGame?.destroy()
+        setPrepared(true)
+      } catch {
+        created?.dispose()
         if (!cancelled) {
-          setGame(null)
-          setSession(null)
+          setRuntime(null)
+          setPrepared(false)
           setRewardBanner(null)
           setSetupError(true)
         }
@@ -166,13 +134,14 @@ export function NativeGameHost({
       cancelled = true
       teardown?.()
     }
-  }, [port, settledUserId, setupAttempt])
+  }, [port, handlePort, settledUserId, setupAttempt])
 
   const { snapshot, actions, capabilities } = useGameSession(
-    session,
+    runtime?.session ?? null,
     IDLE_NATIVE_SNAPSHOT
   )
 
+  const session = runtime?.session ?? null
   useEffect(() => {
     if (!session) {
       return
@@ -188,15 +157,9 @@ export function NativeGameHost({
     return () => subscription.remove()
   }, [session])
 
-  const BoardView = port?.view
-  const MemoBoardView = useMemo(
-    () => (BoardView ? memo(BoardView) : null),
-    [BoardView]
-  )
-
-  if (!port) {
-    // Defensive: every production entry ships a port, but a portless entry
-    // still fails honestly — no session, no saves, just the notice.
+  if (!port && !handlePort) {
+    // Defensive: every production entry ships a runtime source, but a
+    // portless entry still fails honestly — no session, no saves.
     return (
       <View className="flex-1 bg-cetus-canvas">
         <NativeBoardPending />
@@ -227,9 +190,10 @@ export function NativeGameHost({
     )
   }
 
+  const BoardView = runtime?.view ?? null
   const outcomeLabel =
-    port.resultOutcomeLabel && snapshot.result
-      ? port.resultOutcomeLabel(snapshot.result.stats)
+    runtime?.outcomeLabel && snapshot.result
+      ? runtime.outcomeLabel(snapshot.result)
       : null
   return (
     <View className="flex-1 bg-cetus-canvas">
@@ -245,11 +209,11 @@ export function NativeGameHost({
             params: { returnTo: `/games/${gameId}/play` },
           })
         }
-        bindingPending={!session}
+        bindingPending={!runtime || !prepared}
       />
-      {session && game ? (
-        MemoBoardView ? (
-          <MemoBoardView projected={snapshot.projected} game={game} />
+      {runtime ? (
+        BoardView ? (
+          <BoardView projected={snapshot.projected} binding={runtime.binding} />
         ) : (
           <NativeBoardPending />
         )
@@ -259,8 +223,8 @@ export function NativeGameHost({
 }
 
 /**
- * Placeholder board area for ports whose Stage 2/3 view has not landed;
- * the session above it is fully live (start, save, rewards).
+ * Placeholder board area for ports whose native view has not landed; the
+ * session above it is fully live (start, save, rewards).
  */
 function NativeBoardPending() {
   return (

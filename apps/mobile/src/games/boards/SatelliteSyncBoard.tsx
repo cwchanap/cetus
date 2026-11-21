@@ -1,0 +1,641 @@
+import { useMemo, useRef, useState } from 'react'
+import { AccessibilityInfo, Text, View } from 'react-native'
+import { Button } from '@cetus/ui'
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from 'react-native-gesture-handler'
+import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
+import {
+  bearing,
+  pointAlongBearing,
+  polarToWorld,
+  ringRadius,
+  type WorldPoint,
+} from '@cetus/games/satellite-sync/geometry'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
+import type {
+  BeamColor,
+  RuntimeTarget,
+  SatelliteAimIdentity,
+  SatelliteAimSnapshot,
+  SatelliteSyncState,
+} from '@cetus/games/satellite-sync/types'
+
+import {
+  GameCanvas,
+  toLogicalPoint,
+  type GameCanvasGeometry,
+} from '../canvas/GameCanvas'
+import { useFrameLoop } from '../canvas/useFrameLoop'
+import type { NativeHandleGameViewProps } from '../registry'
+import type {
+  SatelliteSyncController,
+  SatelliteSyncProjection,
+} from '../satellite-sync/controller'
+
+const SCENE_SIZE = 360
+const CENTER = SCENE_SIZE / 2
+// Same fit as the web renderer: the widest authored ring set fills 42% of
+// the canvas per side, so satellite world positions never jump by level.
+const SCENE_RINGS = Math.max(...SATELLITE_SYNC_LEVELS.map(level => level.rings))
+const SCENE_SCALE = (SCENE_SIZE * 0.42) / ringRadius(SCENE_RINGS - 1)
+const BEAM_LENGTH = ringRadius(SCENE_RINGS - 1) * 1.25 * SCENE_SCALE
+
+/** Grab radius in world units (web parity: renderer GRAB_RADIUS_WORLD). */
+const GRAB_RADIUS_WORLD = 0.4
+
+const BACKGROUND = '#02030a'
+const RING_COLOR = '#1e3a5f'
+const BODY_COLOR = '#fbbf24'
+const OBSTACLE_COLOR = '#475569'
+
+const BEAM_COLORS: Record<BeamColor, string> = {
+  cyan: '#22d3ee',
+  magenta: '#f472b6',
+  yellow: '#facc15',
+  green: '#4ade80',
+}
+
+const colorLabel = (color: BeamColor): string =>
+  color.charAt(0).toUpperCase() + color.slice(1)
+
+interface ScenePoint {
+  x: number
+  y: number
+}
+
+const scenePoint = (ring: number, angleDeg: number): ScenePoint => {
+  const world = polarToWorld(ring, angleDeg)
+  return {
+    x: CENTER + world.x * SCENE_SCALE,
+    y: CENTER + world.y * SCENE_SCALE,
+  }
+}
+
+/**
+ * Satellite Sync native board (HPA-535 Stage 2). Draws the copied scene with
+ * Skia (rings, moving targets/obstacles, beams) and routes pan aim
+ * begin/update/end to the per-host controller through the portable
+ * `satellite-sync/geometry` helpers — no orbital math or timer engine is
+ * re-derived here. The model expects MILLISECONDS: the shared frame loop
+ * hands over seconds and the step converts once. One loop, one wake
+ * subscription; a manual Stop wakes it for one final idle render.
+ */
+export function SatelliteSyncBoard({
+  projected,
+  binding,
+}: NativeHandleGameViewProps) {
+  const controller = binding as SatelliteSyncController
+  const hud = projected as unknown as SatelliteSyncProjection
+  const [scene, setScene] = useState<SatelliteSyncState | null>(() =>
+    controller.getScene()
+  )
+  const [selectedSatelliteId, setSelectedSatelliteId] = useState<string | null>(
+    null
+  )
+  const [aimStatus, setAimStatus] = useState<string | null>(null)
+  const geometryRef = useRef<GameCanvasGeometry | null>(null)
+  const scrollRef = useRef<ScrollView | null>(null)
+  const dragCandidateRef = useRef<string | null>(null)
+  const dragIdentityRef = useRef<SatelliteAimIdentity | null>(null)
+  const dragActiveRef = useRef(false)
+  const dragBeganRef = useRef(false)
+  const dragSnapshotRef = useRef<SatelliteAimSnapshot | null>(null)
+  const sceneLevelRef = useRef<number | null>(null)
+  const sceneIdentityRef = useRef<string | null>(null)
+
+  const clearDrag = () => {
+    dragCandidateRef.current = null
+    dragIdentityRef.current = null
+    dragActiveRef.current = false
+    dragBeganRef.current = false
+    dragSnapshotRef.current = null
+  }
+
+  /** Roll back an in-progress drag that was cut off before a valid release. */
+  const cancelActiveDrag = () => {
+    const identity = dragIdentityRef.current
+    const began = dragBeganRef.current
+    const snapshot = dragSnapshotRef.current
+    clearDrag()
+    if (!began || !snapshot || !identity) {
+      return
+    }
+    if (!controller.isAimIdentityCurrent(identity)) {
+      return
+    }
+    controller.restoreAim(snapshot)
+    syncScene()
+  }
+
+  /** Copy the live scene, clearing board-local aiming UI when the scene no
+   *  longer belongs to the same model/run/entity set. Returns false when it
+   *  cleared, so a caller cannot write stale lock copy afterwards. */
+  const syncScene = (): boolean => {
+    const next = controller.getScene()
+    const identity = next === null ? null : controller.getAimIdentity()
+    const identityKey =
+      identity === null
+        ? null
+        : `${identity.modelInstanceId}:${identity.entityGeneration}`
+    // Scoped to the model/run and entity generation, not just the level: a
+    // same-level Replay and a level-clear entity swap both invalidate the
+    // previous selection and status.
+    const cleared =
+      next === null ||
+      identityKey === null ||
+      (sceneIdentityRef.current !== null &&
+        identityKey !== sceneIdentityRef.current) ||
+      (sceneLevelRef.current !== null &&
+        next.levelIndex !== sceneLevelRef.current)
+    if (cleared) {
+      setSelectedSatelliteId(null)
+      setAimStatus(null)
+      clearDrag()
+    }
+    sceneIdentityRef.current = identityKey
+    sceneLevelRef.current = next?.levelIndex ?? null
+    setScene(next)
+    return !cleared
+  }
+
+  useFrameLoop(
+    {
+      isRunning: () => controller.isRunning(),
+      // The frame loop measures seconds; SatelliteSyncGame.update() takes ms.
+      step: dtSeconds => controller.update(dtSeconds * 1000),
+      subscribe: (wake, resetTimestamp) =>
+        controller.subscribe(wake, resetTimestamp),
+      onFrame: syncScene,
+      lifecycleKey: () => controller.getStatus(),
+    },
+    controller
+  )
+
+  const worldPointOf = (x: number, y: number): WorldPoint | null => {
+    const geometry = geometryRef.current
+    if (!geometry) {
+      return null
+    }
+    const logical = toLogicalPoint(x, y, geometry)
+    if (!logical) {
+      return null
+    }
+    return {
+      x: (logical.x - CENTER) / SCENE_SCALE,
+      y: (logical.y - CENTER) / SCENE_SCALE,
+    }
+  }
+
+  const satelliteIdAt = (point: WorldPoint): string | null => {
+    const current = controller.getScene()
+    if (!current) {
+      return null
+    }
+    let nearest: string | null = null
+    let bestDistance = GRAB_RADIUS_WORLD
+    for (const satellite of current.satellites) {
+      const world = polarToWorld(satellite.ring, satellite.angle)
+      const distance = Math.hypot(world.x - point.x, world.y - point.y)
+      if (distance <= bestDistance) {
+        bestDistance = distance
+        nearest = satellite.id
+      }
+    }
+    return nearest
+  }
+
+  const aimAngleAt = (
+    satelliteId: string,
+    point: WorldPoint
+  ): number | null => {
+    const satellite = controller
+      .getScene()
+      ?.satellites.find(entry => entry.id === satelliteId)
+    if (!satellite) {
+      return null
+    }
+    return bearing(polarToWorld(satellite.ring, satellite.angle), point)
+  }
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .blocksExternalGesture(scrollRef)
+        // onBegin only hit-tests: a touch-down that turns into a scroll or
+        // a failed pan must not unlock or re-aim anything.
+        .onBegin(event => {
+          cancelActiveDrag()
+          if (!controller.isRunning()) {
+            return
+          }
+          const point = worldPointOf(event.x, event.y)
+          if (!point) {
+            return
+          }
+          const satelliteId = satelliteIdAt(point)
+          if (satelliteId === null) {
+            return
+          }
+          dragCandidateRef.current = satelliteId
+          // Bind the gesture to the model/run + entity set it began on.
+          dragIdentityRef.current = controller.getAimIdentity()
+        })
+        // ACTIVE: the first aim mutation happens on the first move, after
+        // activation, and captures the pre-drag state for cancellation.
+        .onStart(() => {
+          dragActiveRef.current = dragCandidateRef.current !== null
+        })
+        .onUpdate(event => {
+          const satelliteId = dragCandidateRef.current
+          const identity = dragIdentityRef.current
+          if (!dragActiveRef.current || satelliteId === null || !identity) {
+            return
+          }
+          if (!controller.isAimIdentityCurrent(identity)) {
+            // A stop/restart or level swap happened before the board synced;
+            // this event must not touch the replacement entities.
+            clearDrag()
+            return
+          }
+          const point = worldPointOf(event.x, event.y)
+          if (!point) {
+            return
+          }
+          const angle = aimAngleAt(satelliteId, point)
+          if (angle === null) {
+            return
+          }
+          if (!dragBeganRef.current) {
+            dragBeganRef.current = true
+            const snapshot = controller.beginAim(satelliteId)
+            dragSnapshotRef.current = snapshot
+            if (snapshot && !controller.isAimCurrent(snapshot)) {
+              cancelActiveDrag()
+              return
+            }
+          } else {
+            const snapshot = dragSnapshotRef.current
+            if (snapshot && !controller.isAimCurrent(snapshot)) {
+              // Another action claimed the pre-drag lock: roll back the
+              // abandoned aim/snap candidate and stop the drag.
+              cancelActiveDrag()
+              return
+            }
+          }
+          controller.updateAim(satelliteId, angle)
+          syncScene()
+        })
+        // RNGH calls onFinalize for BOTH outcomes with the success flag
+        // (true = END, false = FAILED/CANCELLED). Commit only a completed
+        // drag still bound to its originating model/run/entities; restore a
+        // cancelled one; always clear the drag references.
+        .onFinalize((_event, success) => {
+          const satelliteId = dragCandidateRef.current
+          const identity = dragIdentityRef.current
+          const began = dragBeganRef.current
+          const snapshot = dragSnapshotRef.current
+          clearDrag()
+          if (satelliteId === null || !identity || !began || !snapshot) {
+            return
+          }
+          if (!controller.isAimIdentityCurrent(identity)) {
+            return
+          }
+          if (success && controller.isAimCurrent(snapshot)) {
+            controller.endAim(satelliteId)
+          } else {
+            controller.restoreAim(snapshot)
+          }
+          syncScene()
+        }),
+    [controller]
+  )
+
+  const satellites = scene?.satellites ?? []
+  const targets = scene?.targets ?? []
+  const obstacles = scene?.obstacles ?? []
+  const snapCandidateIds = new Set(
+    satellites
+      .map(satellite => satellite.snapCandidateId)
+      .filter((id): id is string => id !== null)
+  )
+  const lockedCount = targets.filter(target => target.locked).length
+  const level = hud.level ?? 1
+  const levelName = scene?.levelName ?? SATELLITE_SYNC_LEVELS[level - 1]?.name
+  const playing = scene?.status === 'playing'
+  const selectedSatellite =
+    satellites.find(satellite => satellite.id === selectedSatelliteId) ?? null
+
+  const selectSatellite = (satelliteId: string): void => {
+    setSelectedSatelliteId(current =>
+      current === satelliteId ? null : satelliteId
+    )
+    setAimStatus(null)
+  }
+
+  const lockTarget = (target: RuntimeTarget, index: number): void => {
+    if (selectedSatellite === null) {
+      return
+    }
+    const satelliteIndex = satellites.findIndex(
+      satellite => satellite.id === selectedSatellite.id
+    )
+    const locked = controller.lockTarget(selectedSatellite.id, target.id)
+    const sameScene = syncScene()
+    if (!sameScene) {
+      // The lock completed the level (or ended the run): the scene it
+      // described was replaced, so its success/failure copy would be stale.
+      return
+    }
+    const message = locked
+      ? `Target ${index + 1} locked by satellite ${satelliteIndex + 1}.`
+      : `Target ${index + 1} could not be locked — blocked or out of range. Select another target or satellite.`
+    setAimStatus(message)
+    // announceForAccessibility (not a live region) keeps TalkBack to one
+    // utterance per attempt, matching Chromatic Tide's transition pattern.
+    void AccessibilityInfo.announceForAccessibility(message)
+    if (locked) {
+      setSelectedSatelliteId(null)
+    }
+  }
+
+  const summary =
+    scene === null
+      ? 'Satellite Sync board: waiting to start'
+      : `Satellite Sync board: level ${level} ${levelName ?? ''}, ${lockedCount} of ${targets.length} targets locked, combo ×${scene.multiplier}`
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      className="flex-1"
+      contentContainerStyle={{
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+      }}
+    >
+      <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
+        <Text
+          testID="ss-level"
+          className="font-sans text-sm text-cetus-ink-muted"
+        >
+          Level {level} / {SATELLITE_SYNC_LEVELS.length}
+        </Text>
+        <Text
+          testID="ss-targets"
+          className="font-sans text-sm text-cetus-ink-muted"
+        >
+          {scene === null
+            ? 'Targets –'
+            : `Targets ${lockedCount} / ${targets.length}`}
+        </Text>
+        <Text
+          testID="ss-combo"
+          className="font-sans text-sm text-cetus-ink-muted"
+        >
+          Combo ×{scene?.multiplier ?? 1}
+        </Text>
+      </View>
+
+      <GestureDetector gesture={pan}>
+        <View
+          testID="satellite-board"
+          className="w-full"
+          style={{ aspectRatio: 1 }}
+          accessible
+          accessibilityLabel={summary}
+        >
+          <GameCanvas
+            logicalWidth={SCENE_SIZE}
+            logicalHeight={SCENE_SIZE}
+            geometryRef={geometryRef}
+          >
+            <Rect
+              x={0}
+              y={0}
+              width={SCENE_SIZE}
+              height={SCENE_SIZE}
+              color={BACKGROUND}
+            />
+            {Array.from({ length: SCENE_RINGS }, (_, ring) => (
+              <Circle
+                key={`ring-${ring}`}
+                cx={CENTER}
+                cy={CENTER}
+                r={ringRadius(ring) * SCENE_SCALE}
+                style="stroke"
+                strokeWidth={1}
+                color={RING_COLOR}
+                opacity={0.4}
+              />
+            ))}
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={SCENE_SCALE * 0.18}
+              color={BODY_COLOR}
+            />
+            {obstacles.map(obstacle => {
+              const point = scenePoint(obstacle.ring, obstacle.currentAngle)
+              return (
+                <Circle
+                  key={obstacle.id}
+                  cx={point.x}
+                  cy={point.y}
+                  r={obstacle.radius * SCENE_SCALE}
+                  color={OBSTACLE_COLOR}
+                />
+              )
+            })}
+            {satellites.map(satellite => {
+              const point = scenePoint(satellite.ring, satellite.angle)
+              const beamEnd = pointAlongBearing(
+                point,
+                satellite.aimAngle,
+                BEAM_LENGTH
+              )
+              const color = BEAM_COLORS[satellite.color]
+              return (
+                <Group key={satellite.id}>
+                  <Path
+                    path={`M${point.x} ${point.y}L${beamEnd.x} ${beamEnd.y}`}
+                    style="stroke"
+                    strokeWidth={satellite.lockedTargetId ? 5 : 3}
+                    color={color}
+                    opacity={satellite.lockedTargetId ? 1 : 0.7}
+                  />
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={SCENE_SCALE * 0.12}
+                    color={color}
+                  />
+                </Group>
+              )
+            })}
+            {targets.map(target => {
+              const point = scenePoint(target.ring, target.currentAngle)
+              const color = BEAM_COLORS[target.color]
+              const radius = SCENE_SCALE * (target.locked ? 0.16 : 0.12)
+              return (
+                <Group key={target.id}>
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={radius}
+                    color={color}
+                    opacity={target.locked ? 1 : 0.45}
+                  />
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={radius}
+                    style="stroke"
+                    strokeWidth={2}
+                    color={color}
+                  />
+                  {snapCandidateIds.has(target.id) && !target.locked ? (
+                    <Circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={radius + SCENE_SCALE * 0.08}
+                      style="stroke"
+                      strokeWidth={2}
+                      color={color}
+                      opacity={0.9}
+                    />
+                  ) : null}
+                </Group>
+              )
+            })}
+          </GameCanvas>
+        </View>
+      </GestureDetector>
+
+      {playing ? (
+        <View className="gap-2" accessibilityLabel="Screen-reader aiming">
+          <Text className="font-sans text-xs text-cetus-ink-muted">
+            Screen-reader aiming: select a satellite, then a matching-colour
+            target.
+          </Text>
+          <View
+            className="flex-row flex-wrap gap-2"
+            accessibilityLabel="Aim satellites"
+          >
+            {satellites.map((satellite, index) => {
+              const lockedTargetIndex = satellite.lockedTargetId
+                ? targets.findIndex(
+                    target => target.id === satellite.lockedTargetId
+                  )
+                : -1
+              const selected = satellite.id === selectedSatelliteId
+              return (
+                <Button
+                  key={satellite.id}
+                  testID={`ss-satellite-${index}`}
+                  variant={selected ? 'primary' : 'outline'}
+                  size="sm"
+                  accessibilityLabel={`Select satellite ${index + 1}: ${
+                    satellite.color
+                  }${
+                    lockedTargetIndex >= 0
+                      ? `, locked to target ${lockedTargetIndex + 1}`
+                      : ''
+                  }`}
+                  accessibilityState={{ selected, disabled: !playing }}
+                  disabled={!playing}
+                  className="min-w-[30%] flex-1"
+                  onPress={() => selectSatellite(satellite.id)}
+                >
+                  {`Sat ${index + 1} · ${colorLabel(satellite.color)}${
+                    lockedTargetIndex >= 0 ? ` → T${lockedTargetIndex + 1}` : ''
+                  }`}
+                </Button>
+              )
+            })}
+          </View>
+          <View
+            className="flex-row flex-wrap gap-2"
+            accessibilityLabel="Lock targets"
+          >
+            {targets.map((target, index) => {
+              const lockedByIndex = target.lockedBySatId
+                ? satellites.findIndex(
+                    satellite => satellite.id === target.lockedBySatId
+                  )
+                : -1
+              const colourMismatch =
+                selectedSatellite !== null &&
+                target.color !== selectedSatellite.color
+              const disabled =
+                selectedSatellite === null || target.locked || colourMismatch
+              const hint = target.locked
+                ? 'This target is already locked'
+                : selectedSatellite === null
+                  ? 'Select a satellite first'
+                  : colourMismatch
+                    ? `Select a ${target.color} satellite to aim this target`
+                    : 'Aims the selected satellite and locks on release'
+              return (
+                <Button
+                  key={target.id}
+                  testID={`ss-target-${index}`}
+                  variant="ghost"
+                  size="sm"
+                  accessibilityLabel={`Lock target ${index + 1}: ${
+                    target.color
+                  }${target.moving ? ', moving' : ''}, ${
+                    target.locked
+                      ? lockedByIndex >= 0
+                        ? `locked by satellite ${lockedByIndex + 1}`
+                        : 'locked'
+                      : 'unlocked'
+                  }`}
+                  accessibilityHint={hint}
+                  accessibilityState={{ disabled }}
+                  disabled={disabled}
+                  className="min-w-[30%] flex-1"
+                  onPress={() => lockTarget(target, index)}
+                >
+                  {`T${index + 1} · ${colorLabel(target.color)}${
+                    target.moving ? ' · moving' : ''
+                  }${target.locked ? ' · locked' : ''}`}
+                </Button>
+              )
+            })}
+          </View>
+          {aimStatus ? (
+            <Text
+              testID="ss-aim-status"
+              className="font-sans text-sm text-cetus-accent"
+            >
+              {aimStatus}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      <Text className="font-sans text-xs text-cetus-ink-muted">
+        Drag a satellite beam onto a matching-colour target, then release to
+        lock it. Asteroids block the beam — find a clear path.
+      </Text>
+
+      {playing ? (
+        <Button
+          variant="ghost"
+          accessibilityLabel="Stop run"
+          onPress={() => {
+            controller.stop()
+            syncScene()
+          }}
+        >
+          Stop run
+        </Button>
+      ) : null}
+    </ScrollView>
+  )
+}

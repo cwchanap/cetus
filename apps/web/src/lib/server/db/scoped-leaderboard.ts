@@ -4,6 +4,7 @@ import {
     ensureGameScoresContextSchema,
     hasCompleteGameScoresContextColumns,
 } from './game-score-context'
+import { ensureUserIdentitySchema } from './user-identity'
 
 export interface ScopedLeaderboardQuery {
     gameId: string
@@ -88,6 +89,23 @@ export async function getScopedGameLeaderboard(
         !state.known ||
         !hasCompleteGameScoresContextColumns(state.capabilities)
     ) {
+        return {
+            success: false,
+            code: 'SCOPED_LEADERBOARD_UNAVAILABLE',
+        }
+    }
+
+    // The scoped join reads displayName/username, which Better Auth's own
+    // migration does not create. Prepare them through the shared identity
+    // migration first; a failure is an honest unavailable state (503), not a
+    // broken query that logs a raw SQLite error.
+    try {
+        await ensureUserIdentitySchema()
+    } catch (error) {
+        console.error(
+            '[getScopedGameLeaderboard] identity schema unavailable:',
+            error instanceof Error ? error.message : String(error)
+        )
         return {
             success: false,
             code: 'SCOPED_LEADERBOARD_UNAVAILABLE',

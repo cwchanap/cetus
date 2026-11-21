@@ -22,6 +22,7 @@
     "@shopify/react-native-skia": "2.6.2",
     "better-auth": "^1.7.10",
     "expo": "~57.0.31",
+    "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.22",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",

@@ -229,19 +229,31 @@ describe('play route — id fallbacks', () => {
   })
 
   test('renders an explicit unported state for a catalog game outside the registry', async () => {
-    mockParams.gameId = 'tetris'
-    const tree = await render(<GamePlayScreen />)
+    // Every catalog game is ported now, so the honest fallback is exercised
+    // by withholding one entry for the duration of this test.
+    mockParams.gameId = 'rhythm_reactor'
+    const original = NATIVE_GAMES[GameID.RHYTHM_REACTOR]
+    delete NATIVE_GAMES[GameID.RHYTHM_REACTOR]
+    try {
+      const tree = await render(<GamePlayScreen />)
 
-    const rendered = renderedText(tree)
-    expect(rendered).toContain('Not playable on mobile')
-    expect(createdGames).toHaveLength(0)
-    expect(tree.root.findAllByProps({ testID: 'native-board' })).toHaveLength(0)
+      const rendered = renderedText(tree)
+      expect(rendered).toContain('Not playable on mobile')
+      expect(createdGames).toHaveLength(0)
+      expect(tree.root.findAllByProps({ testID: 'native-board' })).toHaveLength(
+        0
+      )
 
-    const back = tree.root.findByProps({ accessibilityLabel: 'Back to games' })
-    await act(async () => {
-      back.props.onPress()
-    })
-    expect(mockReplace).toHaveBeenCalledWith('/')
+      const back = tree.root.findByProps({
+        accessibilityLabel: 'Back to games',
+      })
+      await act(async () => {
+        back.props.onPress()
+      })
+      expect(mockReplace).toHaveBeenCalledWith('/')
+    } finally {
+      NATIVE_GAMES[GameID.RHYTHM_REACTOR] = original
+    }
   })
 })
 

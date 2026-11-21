@@ -1,5 +1,9 @@
 import { db } from './client'
 import { sql } from 'kysely'
+import {
+    ensureUserIdentityColumns,
+    ensureUserIdentitySchema,
+} from './user-identity'
 import type { AchievementCheckData } from '@cetus/shared/achievements'
 import { GameID } from '@cetus/shared/games'
 import type { ScorePlatform } from '@cetus/shared/validations'
@@ -326,7 +330,7 @@ export async function getGameLeaderboard(
         }
 
         try {
-            await sharedUserIdentityMigration()
+            await ensureUserIdentitySchema()
         } catch (error) {
             console.warn(
                 '[getGameLeaderboard] identity schema unavailable:',
@@ -391,75 +395,7 @@ export async function getGameLeaderboard(
     }
 }
 
-async function applyUserIdentityColumns(): Promise<void> {
-    if (_migrationsRun.has('userIdentity')) {
-        return
-    }
-    const result = await sql<{
-        name: string
-    }>`PRAGMA table_info("user")`.execute(db)
-    const cols = result.rows?.map(r => r.name) ?? []
-
-    if (!cols.includes('displayName')) {
-        await sql`ALTER TABLE "user" ADD COLUMN displayName TEXT`.execute(db)
-    }
-
-    if (!cols.includes('username')) {
-        await sql`ALTER TABLE "user" ADD COLUMN username TEXT`.execute(db)
-    }
-
-    // The unique index is a uniqueness backstop, not a read dependency. A
-    // legacy database can hold duplicate usernames that make index creation
-    // fail with a constraint error; reads (leaderboard joins, identity
-    // lookups) must stay available, so warn and mark done rather than
-    // blocking every consumer. Transient failures (network/timeout) are
-    // different: leave the migration unmarked so the next call retries
-    // instead of running without the index until the next deploy.
-    try {
-        await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
-            db
-        )
-        _migrationsRun.add('userIdentity')
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        if (message.toLowerCase().includes('unique constraint')) {
-            console.warn(
-                '[applyUserIdentityColumns] username unique index unavailable:',
-                sanitizeError(error)
-            )
-            _migrationsRun.add('userIdentity')
-        } else {
-            console.warn(
-                '[applyUserIdentityColumns] username unique index attempt failed; will retry on next call:',
-                sanitizeError(error)
-            )
-        }
-    }
-}
-
-let _userIdentitySchemaPromise: Promise<void> | null = null
-
-function sharedUserIdentityMigration(): Promise<void> {
-    if (!_userIdentitySchemaPromise) {
-        _userIdentitySchemaPromise = applyUserIdentityColumns().finally(() => {
-            _userIdentitySchemaPromise = null
-        })
-    }
-    return _userIdentitySchemaPromise
-}
-
-/**
- * Ensure user identity columns (displayName, username) and unique index exist.
- * Safe and idempotent for SQLite/LibSQL.
- */
-export async function ensureUserIdentityColumns(): Promise<void> {
-    try {
-        await sharedUserIdentityMigration()
-    } catch (error) {
-        // Log but swallow to avoid breaking primary flows
-        console.warn('[ensureUserIdentityColumns] Migration warning:', error)
-    }
-}
+export { ensureUserIdentityColumns }
 
 /**
  * Check if a username is available (optionally excluding a specific user ID).
@@ -613,7 +549,7 @@ export async function getUserIdentityById(
 export async function getUserIdentityByIdStrict(
     userId: string
 ): Promise<PublicUser | null> {
-    await sharedUserIdentityMigration()
+    await ensureUserIdentitySchema()
     return readUserIdentityById(userId)
 }
 

@@ -21,11 +21,23 @@ import {
 import type {
     SatelliteSyncCallbacks,
     SatelliteSyncState,
+    SatelliteSyncStatus,
     RuntimeSatellite,
     SatelliteSyncGameData,
+    SatelliteAimIdentity,
+    SatelliteAimSnapshot,
 } from './types'
 
+// One id per constructed model so a snapshot captured before Stop/Replay
+// can never be restored into the replacement instance.
+let nextModelInstanceId = 1
+
 export class SatelliteSyncGame {
+    private readonly modelInstanceId = nextModelInstanceId++
+    private entityGeneration = 0
+    // Monotonic counter over every combo/multiplier write, so a cancelled
+    // drag can tell its own unlock reset apart from an unrelated one.
+    private comboRevision = 0
     private callbacks: SatelliteSyncCallbacks
     private scoreManager: ScoreManager
     private timer: GameTimer | null = null
@@ -105,6 +117,7 @@ export class SatelliteSyncGame {
         this.state.timeRemaining = level.timeBudget
         this.state.combo = 0
         this.state.multiplier = 1
+        this.comboRevision += 1
         this.state.status = 'playing'
 
         this.stopTimer()
@@ -123,6 +136,9 @@ export class SatelliteSyncGame {
     }
 
     private loadLevelEntities(index: number): void {
+        // Every entity set (new run or level swap) gets a fresh generation;
+        // snapshots from the previous entities are no longer restorable.
+        this.entityGeneration += 1
         const level = SATELLITE_SYNC_LEVELS[index]
         this.state.satellites = level.satellites.map((s, i) => ({
             id: `sat-${i}`,
@@ -227,6 +243,7 @@ export class SatelliteSyncGame {
         ) {
             this.state.combo = 0
             this.state.multiplier = 1
+            this.comboRevision += 1
             this.callbacks.onComboReset()
         }
     }
@@ -293,6 +310,128 @@ export class SatelliteSyncGame {
         sat.snapCandidateId = null
     }
 
+    /** Read-only pre-drag snapshot; never mutates the run. */
+    captureAimState(satId: string): SatelliteAimSnapshot | null {
+        const sat = this.findSatellite(satId)
+        if (!sat) {
+            return null
+        }
+        return {
+            modelInstanceId: this.modelInstanceId,
+            entityGeneration: this.entityGeneration,
+            satelliteId: satId,
+            aimAngle: sat.aimAngle,
+            snapCandidateId: sat.snapCandidateId,
+            lockedTargetId: sat.lockedTargetId,
+            combo: this.state.combo,
+            multiplier: this.state.multiplier,
+            comboRevision: this.comboRevision,
+        }
+    }
+
+    /** Identity of the current model instance + entity generation, for
+     *  invalidating gesture events that arrive after a lifecycle change. */
+    getAimIdentity(): SatelliteAimIdentity {
+        return {
+            modelInstanceId: this.modelInstanceId,
+            entityGeneration: this.entityGeneration,
+        }
+    }
+
+    /** True while a gesture that began with `identity` may still mutate the
+     *  live run. */
+    isAimIdentityCurrent(identity: SatelliteAimIdentity): boolean {
+        return (
+            this.state.status === 'playing' &&
+            identity.modelInstanceId === this.modelInstanceId &&
+            identity.entityGeneration === this.entityGeneration
+        )
+    }
+
+    /**
+     * True when a captured snapshot still describes the live satellite and
+     * entity generation, so a drag may keep aiming and commit. False after
+     * a run/level change, a stop/finish, or when another satellite has
+     * claimed the target the snapshot expects to restore.
+     */
+    isAimStateCurrent(snapshot: SatelliteAimSnapshot): boolean {
+        if (!this.isAimIdentityCurrent(snapshot)) {
+            return false
+        }
+        const sat = this.findSatellite(snapshot.satelliteId)
+        if (!sat || sat.lockedTargetId !== null) {
+            return false
+        }
+        if (snapshot.lockedTargetId) {
+            const target = this.state.targets.find(
+                t => t.id === snapshot.lockedTargetId
+            )
+            if (!target || target.locked) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Undo a cancelled drag's aim/unlock mutations. Restores the captured
+     * lock, aim, snap candidate and combo WITHOUT scoring or emitting lock
+     * callbacks. Returns false without touching anything when the snapshot
+     * is stale (another model instance, a level/entity swap, a finished or
+     * stopped run) or when another satellite has since claimed the target,
+     * so a rollback can never overwrite a newer run, level or lock owner.
+     */
+    restoreAimState(snapshot: SatelliteAimSnapshot): boolean {
+        if (!this.isAimIdentityCurrent(snapshot)) {
+            return false
+        }
+        const sat = this.findSatellite(snapshot.satelliteId)
+        if (!sat || sat.lockedTargetId !== null) {
+            return false
+        }
+        sat.aimAngle = snapshot.aimAngle
+        sat.snapCandidateId = snapshot.snapCandidateId
+        if (!this.isAimStateCurrent(snapshot)) {
+            return false
+        }
+        const restoredTarget = snapshot.lockedTargetId
+            ? this.state.targets.find(t => t.id === snapshot.lockedTargetId)
+            : undefined
+
+        sat.lockedTargetId = restoredTarget ? restoredTarget.id : null
+        for (const target of this.state.targets) {
+            if (target.id === sat.lockedTargetId) {
+                target.locked = true
+                target.lockedBySatId = sat.id
+            } else if (target.lockedBySatId === sat.id) {
+                // Defensive: a drag cannot commit, but never leave this
+                // satellite holding a second lock.
+                target.locked = false
+                target.lockedBySatId = null
+            }
+        }
+        // Restore the combo only when the sole write since capture is this
+        // drag's own unlock reset (a locked pre-drag satellite always resets
+        // it to 0/×1 in beginAim). An unrelated reset that coincidentally
+        // also leaves 0/×1 increments the revision a second time, so the
+        // newer reset stands instead of being rolled back.
+        const expectedRevision = snapshot.lockedTargetId
+            ? snapshot.comboRevision + 1
+            : snapshot.comboRevision
+        if (this.comboRevision === expectedRevision) {
+            this.state.combo = snapshot.combo
+            this.state.multiplier = snapshot.multiplier
+            this.comboRevision += 1
+        }
+        if (restoredTarget && this.state.targets.every(t => t.locked)) {
+            // A cancelled drag that restores the last missing lock clears
+            // the level: the same clear path a fresh lock takes (level
+            // bonus only — a restore never scores a new lock).
+            this.handleLevelClear()
+        }
+        return true
+    }
+
     aimAtTarget(satId: string, targetId: string): boolean {
         const sat = this.findSatellite(satId)
         const target = this.state.targets.find(t => t.id === targetId)
@@ -344,6 +483,7 @@ export class SatelliteSyncGame {
 
         const points = lockPoints(this.state.combo)
         this.scoreManager.addPoints(points, 'lock')
+        this.comboRevision += 1
         this.callbacks.onLock({
             combo: this.state.combo,
             multiplier: this.state.multiplier,
@@ -366,6 +506,7 @@ export class SatelliteSyncGame {
         sat.lockedTargetId = null
         this.state.combo = 0
         this.state.multiplier = 1
+        this.comboRevision += 1
         this.callbacks.onComboReset()
     }
 
@@ -394,6 +535,10 @@ export class SatelliteSyncGame {
 
     private satWorld(sat: RuntimeSatellite): WorldPoint {
         return polarToWorld(sat.ring, sat.angle)
+    }
+
+    getStatus(): SatelliteSyncStatus {
+        return this.state.status
     }
 
     getState(): SatelliteSyncState {
