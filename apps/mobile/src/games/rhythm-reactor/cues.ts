@@ -25,7 +25,7 @@ type CueState = Pick<RhythmReactorState, 'pendingNotes' | 'elapsedSeconds'>
 
 /**
  * Pick the next spoken lane cue for a frame, or null while the channel is
- * still reserved or no unannounced note sits inside the lead window. The
+ * still reserved or no unannounced note sits inside the lead window — the
  * batch announces at most UPCOMING_LIMIT notes; when a further note would
  * lapse inside the reservation, the hold is shortened so the next cue can
  * still announce it before it reaches the hit line.
