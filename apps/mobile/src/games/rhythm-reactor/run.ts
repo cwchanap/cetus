@@ -470,9 +470,20 @@ export class RhythmReactorRun {
         // chart even if its last judged clock position is short of the final
         // miss-window boundary. This preserves an earned score when frames
         // stop after the final hit; unresolved charts still abort.
-        const modelResolved =
+        let modelResolved =
             state.pendingNotes.length === 0 ||
             state.elapsedSeconds + 0.05 >= this.finalNoteResolvedSeconds
+        if (!modelResolved && mediaReachedFinalNote && player !== null) {
+            // Frame callbacks stalled while the media ran past the final
+            // note window: verified media time is the authority, so catch
+            // the model up and judge the position the missing frame would
+            // have produced. Media that itself fell short still aborts.
+            this.catchUpToAudio(player, state.elapsedSeconds)
+            const caughtUp = this.game.getState()
+            modelResolved =
+                caughtUp.pendingNotes.length === 0 ||
+                caughtUp.elapsedSeconds + 0.05 >= this.finalNoteResolvedSeconds
+        }
         if (!mediaReachedFinalNote || !modelResolved) {
             this.playError =
                 'Playback was interrupted. Press Start to try again.'
