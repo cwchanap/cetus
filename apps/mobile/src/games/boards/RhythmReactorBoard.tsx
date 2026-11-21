@@ -17,6 +17,7 @@ import {
   getRhythmReactorRun,
   type RhythmReactorRunSnapshot,
 } from '../rhythm-reactor/run'
+import { UPCOMING_LIMIT, planRhythmReactorCue } from '../rhythm-reactor/cues'
 
 const {
   canvasWidth: BOARD_WIDTH,
@@ -101,15 +102,7 @@ const audioStateLabel = (snapshot: RhythmReactorRunSnapshot): string => {
 const calibrationLabel = (calibrationMs: number): string =>
   `Calibration ${calibrationMs >= 0 ? '+' : ''}${calibrationMs} ms`
 
-const CUE_LEAD_SECONDS = 1.5
 const CUE_INTERVAL_MS = 1500
-const CUE_EXTRA_NOTE_MS = 500
-const UPCOMING_LIMIT = 4
-
-/** Hold the announcement channel long enough for a multi-note cue to finish
- *  speaking before the next cue can fire and cut it off. */
-const cueDurationMs = (noteCount: number): number =>
-  CUE_INTERVAL_MS + Math.max(0, noteCount - 2) * CUE_EXTRA_NOTE_MS
 
 const approachNotes = (state: RhythmReactorState) =>
   state.pendingNotes
@@ -153,13 +146,6 @@ const upcomingLabel = (state: RhythmReactorState): string => {
     )
     .join(', ')}.`
 }
-
-/** Notes inside the spoken cue lead, earliest first. */
-const cueNotes = (state: RhythmReactorState) =>
-  approachNotes(state).filter(note => {
-    const remaining = note.hitTimeSeconds - state.elapsedSeconds
-    return remaining >= 0 && remaining <= CUE_LEAD_SECONDS
-  })
 
 /**
  * Rhythm Reactor native board (HPA-535 Stage 5). Skia draws the four lanes
@@ -218,31 +204,20 @@ export function RhythmReactorBoard({ game }: NativeGameViewProps) {
       return
     }
     const now = Date.now()
-    if (
-      lastCueAtRef.current !== null &&
-      now - lastCueAtRef.current < lastCueDurationMsRef.current
-    ) {
-      return
-    }
-    const due = cueNotes(state).filter(
-      candidate => !announcedNotesRef.current.has(candidate.id)
+    const plan = planRhythmReactorCue(
+      state,
+      announcedNotesRef.current,
+      now,
+      lastCueAtRef.current,
+      lastCueDurationMsRef.current
     )
-    if (due.length === 0) {
+    if (plan === null) {
       return
     }
-    const notes = state.pendingNotes
-      .filter(
-        note =>
-          !announcedNotesRef.current.has(note.id) &&
-          note.hitTimeSeconds >= state.elapsedSeconds &&
-          note.hitTimeSeconds - state.elapsedSeconds <=
-            CUE_LEAD_SECONDS + CUE_INTERVAL_MS / 1000
-      )
-      .sort((a, b) => a.hitTimeSeconds - b.hitTimeSeconds)
-      .slice(0, UPCOMING_LIMIT)
+    const { notes } = plan
     notes.forEach(note => announcedNotesRef.current.add(note.id))
     lastCueAtRef.current = now
-    lastCueDurationMsRef.current = cueDurationMs(notes.length)
+    lastCueDurationMsRef.current = plan.holdMs
     void AccessibilityInfo.announceForAccessibility(
       `${notes
         .map(
