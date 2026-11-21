@@ -449,7 +449,9 @@ export function IceSlideBoard({
         </View>
       ) : null}
 
-      {scene.pendingRouteChoice !== null ? (
+      {/* A stopped run keeps pendingRouteChoiceAfterStage on the retained
+          scene; hide the dead chooser like web's hideRouteChoice() on stop. */}
+      {playing && scene.pendingRouteChoice !== null ? (
         <View
           testID="ice-route-choice"
           className="gap-2 rounded-xl border border-cetus-hairline p-3"
