@@ -619,14 +619,21 @@ describe('Bejeweled pilot — board', () => {
 
     await press(tree, 'Start game')
     setGrid(game, VALID_SWAP_GRID())
+    // A suspended wait holds one pause and one resume listener until
+    // finish() runs, so the channel count proves the wait settled.
+    const channelListeners = () =>
+      game.listenerCount('pause') + game.listenerCount('resume')
+    const baseline = channelListeners()
     await tapCell(tree, 3, 1)
     await tapCell(tree, 2, 1)
     expect(game.getState().isAnimating).toBe(true)
 
     await press(tree, 'Pause game')
+    expect(channelListeners()).toBe(baseline + 2)
     await press(tree, 'Reset game')
     expect(game.getState().isAnimating).toBe(false)
     expect(game.getState().movesMade).toBe(0)
+    expect(channelListeners()).toBe(baseline)
 
     // The suspended wait settles on the run change instead of hanging;
     // letting it resolve must not commit the stale run's swap.
