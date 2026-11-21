@@ -848,4 +848,37 @@ describe('Ice Slide pilot — Expedition route, Undo and refresh', () => {
     ).toBe(true)
     expect(submitScore).not.toHaveBeenCalled()
   })
+
+  test('Stop at the route prompt leaves no active Safe/Risky actions', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.ICE_SLIDE} />)
+    await press(tree, 'Select mode expedition')
+    await press(tree, 'Start game')
+    const game = gameOf(tree)
+
+    clearStage(tree)
+    clearStage(tree)
+    expect(game.getState().pendingRouteChoiceAfterStage).toBe(2)
+    expect(tree.root.findByProps({ testID: 'ice-route-choice' })).toBeTruthy()
+
+    await press(tree, 'Stop run')
+
+    // stop() keeps the model's pending choice on the retained scene, so the
+    // board must hide the chooser like web's hideRouteChoice() — pressing
+    // either action would silently no-op on the stopped run.
+    expect(game.getState().status).toBe('idle')
+    expect(game.getState().pendingRouteChoiceAfterStage).toBe(2)
+    expect(
+      tree.root.findAllByProps({ testID: 'ice-route-choice' })
+    ).toHaveLength(0)
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Choose safe route' })
+    ).toHaveLength(0)
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Choose risky route' })
+    ).toHaveLength(0)
+    // A positive-score Expedition stop still shows the saving RUN ENDED result.
+    expect(testText(tree, 'result-outcome')).toBe('Run ended')
+    expect(testText(tree, 'result-save-status')).toBe('Score saved')
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
 })
